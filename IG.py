@@ -70,20 +70,18 @@ ASSET_CLASSES = {
 @st.cache_data(ttl=3600) # 數據快取一小時
 def load_data(symbol, period, interval):
     """從 yfinance 下載歷史數據。"""
-    st.info(f"正在從 Yahoo Finance 下載 **{symbol}** 的 {period} 數據 (週期: {interval})... 請稍候 ⏳")
+    # 為了避免在數據下載期間觸發錯誤，使用 st.markdown 替代 st.info
+    st.markdown(f"🤖 正在從 Yahoo Finance 下載 **{symbol}** 的 {period} 數據 (週期: {interval})... 請稍候 ⏳")
     
     try:
-        # 使用 auto_adjust=True 讓 yfinance 自動處理分割和股利調整
         df = yf.download(symbol, period=period, interval=interval, progress=False, auto_adjust=True)
         
         if df.empty:
             st.error(f"⚠️ 無法獲取 **{symbol}** 在 {interval} 週期下的數據。請檢查代碼或更換週期。")
             return None
         
-        # 確保列名符合 ta 庫的要求
         df.columns = [col.capitalize() for col in df.columns]
         
-        # 對於高頻數據（例如 30m, 60m），移除不必要的 'Volume' 0 值行，因為它們會扭曲分析
         if 'm' in interval or 'h' in interval:
             df = df[df['Volume'] > 0]
 
@@ -100,21 +98,14 @@ def add_technical_indicators(df):
         return df
 
     # --- 1. 趨勢指標 (Trend Indicators) ---
-    # SMA (Simple Moving Average)
     df['SMA_50'] = ta.trend.sma_indicator(df['Close'], window=50)
     df['SMA_200'] = ta.trend.sma_indicator(df['Close'], window=200)
     
-    # EMA (Exponential Moving Average)
-    df['EMA_12'] = ta.trend.ema_indicator(df['Close'], window=12)
-    df['EMA_26'] = ta.trend.ema_indicator(df['Close'], window=26)
-    
-    # MACD
     macd = ta.trend.MACD(df['Close'], window_fast=12, window_slow=26, window_sign=9)
     df['MACD_Line'] = macd.macd()
     df['MACD_Signal'] = macd.macd_signal()
     df['MACD_Hist'] = macd.macd_diff() # Histogram
 
-    # Bollinger Bands
     bollinger = ta.volatility.BollingerBands(df['Close'], window=20, window_dev=2)
     df['BB_High'] = bollinger.bollinger_hband()
     df['BB_Low'] = bollinger.bollinger_lband()
@@ -122,22 +113,18 @@ def add_technical_indicators(df):
     df['BB_Width'] = bollinger.bollinger_wband()
 
     # --- 2. 動能指標 (Momentum Indicators) ---
-    # RSI (Relative Strength Index)
     df['RSI'] = ta.momentum.rsi(df['Close'], window=14)
     
-    # Stochastics Oscillator (K, D)
     stoch = ta.momentum.StochasticOscillator(df['High'], df['Low'], df['Close'], window=14, smooth_window=3)
     df['STOCH_K'] = stoch.stoch()
     df['STOCH_D'] = stoch.stoch_signal()
 
-    # ADX (Average Directional Index)
     adx = ta.trend.ADXIndicator(df['High'], df['Low'], df['Close'], window=14)
     df['ADX'] = adx.adx()
     df['DI_Plus'] = adx.adx_pos()
     df['DI_Minus'] = adx.adx_neg()
 
     # --- 3. 成交量指標 (Volume Indicators) ---
-    # On Balance Volume (OBV)
     df['OBV'] = ta.volume.on_balance_volume(df['Close'], df['Volume'])
 
     # 移除計算指標所需的NaN值，但保留至少150根K線用於顯示
@@ -152,13 +139,13 @@ def analyze_indicator_status(df, indicator_name, period_key):
     
     # 針對不同週期調整判讀策略
     if "日" in period_key or "週" in period_key:
-        RSI_BULL_THRESHOLD = 55  # 中長線看漲閾值
-        RSI_BEAR_THRESHOLD = 45  # 中長線看跌閾值
-        ADX_TREND_THRESHOLD = 25 # 趨勢強度閾值
+        RSI_BULL_THRESHOLD = 55  
+        RSI_BEAR_THRESHOLD = 45  
+        ADX_TREND_THRESHOLD = 25 
     else:
-        RSI_BULL_THRESHOLD = 60 # 短線看漲閾值
-        RSI_BEAR_THRESHOLD = 40 # 短線看跌閾值
-        ADX_TREND_THRESHOLD = 20 # 趨勢強度閾值
+        RSI_BULL_THRESHOLD = 60 
+        RSI_BEAR_THRESHOLD = 40 
+        ADX_TREND_THRESHOLD = 20 
 
     color_code = 'gray'
     conclusion = '中性'
@@ -381,8 +368,11 @@ def sidebar_ui():
     default_symbol_key = st.session_state.get('last_search_symbol', suggested_symbols[0] if suggested_symbols else "2330.TW")
     
     # 確保預設值在下拉選單中
-    if default_symbol_key not in suggested_symbols and asset_class == "美股": # 預設美股
-         suggested_symbols.insert(0, default_symbol_key)
+    if default_symbol_key not in suggested_symbols:
+         if suggested_symbols:
+              suggested_symbols.insert(0, default_symbol_key)
+         else:
+              suggested_symbols.append(default_symbol_key)
     
     # 找出預設值在建議列表中的位置
     try:
@@ -425,8 +415,6 @@ def sidebar_ui():
 # ----------------------------------------------------
 # 主 UI 邏輯
 # ----------------------------------------------------
-# 由於 Streamlit 執行流程是從上到下，我們將主要邏輯放在 main() 函數中
-
 def main():
     
     # 獲取側邊欄參數和按鈕狀態
@@ -468,7 +456,7 @@ def main():
         
         # 核心指標列表 (名稱, 資料欄位名稱)
         key_indicators = [
-            ("價格與長期均線", "Price vs MA"), # 特殊指標，需自定義邏輯
+            ("價格與長期均線", "Price vs MA"), 
             ("RSI (14)", "RSI"),
             ("MACD 柱狀圖", "MACD_Hist"),
             ("STOCH K線", "STOCH_K"),
@@ -478,14 +466,13 @@ def main():
         # 建立結果表格
         results = []
         for display_name, data_col in key_indicators:
-            # 處理 Price vs MA 欄位，它在 df 中並不存在，但 analyze_indicator_status 能夠處理
             if data_col in df.columns or data_col == "Price vs MA":
                 latest_value_str, conclusion, color_code = analyze_indicator_status(df, data_col, selected_period_key)
                 results.append({
                     "指標名稱": display_name,
                     "最新值": latest_value_str,
                     "分析結論": conclusion,
-                    "顏色代碼": color_code # 暫存顏色，用於後續表格樣式
+                    "顏色代碼": color_code 
                 })
 
         if results:
@@ -496,15 +483,11 @@ def main():
                 style = [''] * len(row)
                 color = row['顏色代碼']
                 
-                # 應用到整個分析結論欄位
                 if color == 'green':
-                    # 偏多/買入信號 (綠色背景, 深綠色文字)
                     style[2] = 'background-color: #D4EDDA; color: #155724; font-weight: bold;'
                 elif color == 'red':
-                    # 偏空/賣出信號 (紅色背景, 深紅色文字)
                     style[2] = 'background-color: #F8D7DA; color: #721C24; font-weight: bold;'
                 elif color == 'gray':
-                    # 中性/震盪信號 (灰色背景)
                     style[2] = 'background-color: #E2E3E5; color: #383D41;'
                 
                 return style
@@ -529,18 +512,29 @@ def main():
         
         st.plotly_chart(chart, use_container_width=True, key=f"plotly_chart_{final_symbol_to_analyze}_{selected_period_key}")
 
-    # 應用程式啟動或未點擊按鈕時的提示訊息
+    # 應用程式啟動或未點擊按鈕時的提示訊息 (已修正)
     elif not st.session_state.get('data_ready', False) and not analyze_button_clicked:
-          # --- 修正後的程式碼：移除 f-string 前綴，修復 TypeError ---
-          st.info("請在左側選擇或輸入標的（例如：**2330.TW**、**NVDA**、**BTC-USD**），然後點擊 <span style='color: #FA8072; font-weight: bold;'>『📊 執行AI分析』</span> 按鈕開始。", unsafe_allow_html=True)
+          
+          # **關鍵修正**：用 st.markdown 替代 st.info，並使用 div 包裹來模擬 alert 效果，避開 TypeError
+          st.markdown("""
+              <div style='
+                  padding: 10px; 
+                  border-radius: 5px; 
+                  background-color: #D6ECF0; /* Light info-like color */
+                  color: #31708f; /* Info-like text color */
+                  border-left: 5px solid #31708f;'>
+                  請在左側選擇或輸入標的（例如：<strong>2330.TW</strong>、<strong>NVDA</strong>、<strong>BTC-USD</strong>），然後點擊 <span style='color: #FA8072; font-weight: bold;'>『📊 執行AI分析』</span> 按鈕開始。
+              </div>
+          """, unsafe_allow_html=True)
           
           st.markdown("---")
           
           st.subheader("📝 使用步驟：")
           st.markdown("1. **選擇資產類別**：在左側欄選擇 `美股`、`台股` 或 `加密貨幣`。")
           st.markdown("2. **選擇標的**：使用下拉選單快速選擇熱門標的，或直接在輸入框中鍵入代碼或名稱。")
-          st.markdown("3. **選擇週期**：決定分析的長度（例如：`30 分`、`4 小時`、`1 日`、`1 周`）。")
-          st.markdown(f"4. **執行分析**：點擊 <span style='color: #FA8072; font-weight: bold;'>『📊 執行AI分析』**</span>，AI將融合基本面與技術面指標提供交易策略。", unsafe_allow_html=True)
+          st.markdown("3. **選擇週期**：決定分析的長度（例如：`30 分 (短期)`、`4 小時 (波段)`、`1 日 (中長線)`）。")
+          # **關鍵修正**：修正 Markdown 語法錯誤 (移除 『📊 執行AI分析』後的冗餘 **)
+          st.markdown("4. **執行分析**：點擊 <span style='color: #FA8072; font-weight: bold;'>『📊 執行AI分析』</span>，AI將融合技術指標提供交易策略。", unsafe_allow_html=True)
           
           st.markdown("---")
 
