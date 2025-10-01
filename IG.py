@@ -92,16 +92,13 @@ def download_data(symbol, period, interval):
 def calculate_technical_indicators(df):
     """計算所有技術指標並返回原始df與格式化後的摘要表。"""
     
-    # --- FIX FOR ValueError: Data must be 1-dimensional (Add robust data check) ---
-    # 檢查DataFrame是否為空或缺少關鍵的'Close'欄位 (yfinance下載失敗時常發生)
+    # --- 數據驗證 ---
     if df.empty or 'Close' not in df.columns or df['Close'].isnull().all():
-        # 如果數據無效，顯示錯誤並返回空的 DataFrames 以防止後續錯誤
         st.error("⚠️ **數據不足:** 無法計算技術指標。數據集為空、缺少 'Close' 價格或數據皆為 NaN。請嘗試調整時間範圍/週期。")
         return pd.DataFrame(), pd.DataFrame()
-    # -----------------------------------------------------------------------------
     
     try:
-        # 確保 'Close' 是一個 1D 的 Series (這一步通常可以防止 ValueError)
+        # 確保 'Close' 是一個 1D 的 Series 
         close_series = df['Close'].astype(float).squeeze()
 
         # 趨勢指標
@@ -202,32 +199,21 @@ def calculate_technical_indicators(df):
             style = 'background-color: '
             conclusion = row['分析結論']
             
-            if '多頭' in conclusion or '買入信號' in conclusion or '上升' in conclusion or row['指標'] == '最新價':
-                return [''] * len(row) # 價格不標色，其他指標用下面邏輯
+            if row['指標'] == '最新價': return [''] * len(row) # 價格不標色
 
-            if row['指標'].startswith('SMA'):
-                if '多頭' in conclusion: style += '#FFE7E7; color: #CC0000' # 淡紅 (強多頭)
-                elif '空頭' in conclusion: style += '#E7F7E7; color: #008000' # 淡綠 (強空頭)
-                else: style += '#FFF3E0; color: #E65100' # 淡橙 (中性)
+            # 趨勢/動能判讀
+            if '多頭' in conclusion or '買入信號' in conclusion or '上升' in conclusion or '低檔超賣' in conclusion:
+                return ['background-color: #E7F7E7; color: #008000'] * len(row) # 淡綠/綠字 (看多/買入信號)
             
-            elif row['指標'] == 'RSI (14)':
-                if '超買區' in conclusion: style += '#FFE7E7; color: #CC0000'
-                elif '超賣區' in conclusion: style += '#E7F7E7; color: #008000'
-                else: style += '#F0F0F0'
+            elif '空頭' in conclusion or '賣出信號' in conclusion or '下降' in conclusion or '高檔超買' in conclusion:
+                return ['background-color: #FFE7E7; color: #CC0000'] * len(row) # 淡紅/紅字 (看空/賣出信號)
             
-            elif row['指標'] == 'StochRSI K/D':
-                if '高檔超買' in conclusion or '空頭動能增強' in conclusion: style += '#FFE7E7; color: #CC0000'
-                elif '低檔超賣' in conclusion or '多頭動能增強' in conclusion: style += '#E7F7E7; color: #008000'
-                else: style += '#F0F0F0'
-                
-            elif row['指標'] == 'OBV':
-                if '多頭量能' in conclusion: style += '#FFE7E7; color: #CC0000'
-                elif '空頭量能' in conclusion: style += '#E7F7E7; color: #008000'
-                else: style += '#F0F0F0'
+            elif '中性' in conclusion or '正常波動率' in conclusion or '量能持平' in conclusion: 
+                return ['background-color: #F0F0F0; color: #333333'] * len(row) # 灰色 (中性)
+            
             else:
-                style += 'white'
+                return ['background-color: #FFFFE0; color: #E65100'] * len(row) # 淡黃 (警告/整理)
 
-            return [style] * len(row)
 
         styled_tech_df = tech_df.style.apply(apply_color, axis=1)
 
@@ -427,8 +413,10 @@ def main_app():
         st.session_state['data_ready'] = False # 重置狀態，開始新的分析
         st.session_state['last_search_symbol'] = search_input
     
+    
+    # --- 修正點 1: 移除對 selected_period_key 的重複賦值 (不需要這行，因為它直接來自 selectbox) ---
     final_symbol_to_analyze, display_name = find_symbol_info(st.session_state.get('last_search_symbol', '2330.TW'))
-    selected_period_key = st.session_state.get('sidebar_period', '1 日 (中長線)')
+    # selected_period_key = st.session_state.get('sidebar_period', '1 日 (中長線)') # REMOVED
 
     if analyze_button_clicked or st.session_state.get('data_ready', False):
         
@@ -436,7 +424,9 @@ def main_app():
         if analyze_button_clicked:
             final_symbol_to_analyze, display_name = find_symbol_info(search_input)
             st.session_state['last_search_symbol'] = final_symbol_to_analyze # 確保 session state 更新
-            st.session_state['sidebar_period'] = selected_period_key
+            st.session_state['sidebar_period'] = selected_period_key # 這是錯誤的源頭，因為 'sidebar_period' 已經被 widget 綁定。
+            # --- 修正點 2: 移除對 st.session_state['sidebar_period'] 的衝突寫入 ---
+            # 由於 selectbox 已經將值寫入 st.session_state['sidebar_period']，此行被移除。
             
         period, interval = PERIOD_MAP[selected_period_key]
 
