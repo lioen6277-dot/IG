@@ -389,7 +389,7 @@ def main_app():
     )
     
     # 手動輸入/確認代碼
-    default_input = options[selected_option] if selected_option else st.session_state.get('last_search_symbol', "2330.TW")
+    default_input = options[selected_option] if selected_option and selected_option in options else st.session_state.get('last_search_symbol', "2330.TW")
     search_input = st.sidebar.text_input(
         "或手動輸入代碼/名稱 (如 2330.TW, NVDA, BTC-USD):", 
         value=default_input, 
@@ -401,7 +401,7 @@ def main_app():
     selected_period_key = st.sidebar.selectbox(
         "選擇分析週期:",
         period_keys,
-        index=period_keys.index("1 日 (中長線)"), # 預設選擇 '1 日 (中長線)'
+        index=period_keys.index(st.session_state.get('sidebar_period', '1 日 (中長線)')), # 使用 session state 的值作為預設 index
         key='sidebar_period'
     )
     
@@ -411,28 +411,26 @@ def main_app():
     # 檢查是否已點擊執行按鈕，或者從 session_state 中恢復上一次的分析結果
     if analyze_button_clicked:
         st.session_state['data_ready'] = False # 重置狀態，開始新的分析
+        # 更新最後一次搜索的代碼 (即使是從 quick_select 選的，也要更新)
         st.session_state['last_search_symbol'] = search_input
     
-    
-    # --- 修正點 1: 移除對 selected_period_key 的重複賦值 (不需要這行，因為它直接來自 selectbox) ---
+    # 確定最終要分析的代碼和週期
     final_symbol_to_analyze, display_name = find_symbol_info(st.session_state.get('last_search_symbol', '2330.TW'))
-    # selected_period_key = st.session_state.get('sidebar_period', '1 日 (中長線)') # REMOVED
+    current_selected_period = st.session_state['sidebar_period'] # 直接從 widget 綁定的 state 中讀取
 
     if analyze_button_clicked or st.session_state.get('data_ready', False):
         
-        # 覆蓋為當前選擇的代碼和週期
+        # 如果是第一次點擊，確保使用當前輸入框的值
         if analyze_button_clicked:
             final_symbol_to_analyze, display_name = find_symbol_info(search_input)
             st.session_state['last_search_symbol'] = final_symbol_to_analyze # 確保 session state 更新
-            st.session_state['sidebar_period'] = selected_period_key # 這是錯誤的源頭，因為 'sidebar_period' 已經被 widget 綁定。
-            # --- 修正點 2: 移除對 st.session_state['sidebar_period'] 的衝突寫入 ---
-            # 由於 selectbox 已經將值寫入 st.session_state['sidebar_period']，此行被移除。
+            # REMOVED: st.session_state['sidebar_period'] = selected_period_key # <--- 這是導致錯誤的行！
             
-        period, interval = PERIOD_MAP[selected_period_key]
-
+        period, interval = PERIOD_MAP[current_selected_period] # 使用讀取到的最新週期
+        
         # 標題和資訊展示
         st.header(f"🚀 {final_symbol_to_analyze} - {display_name} AI 趨勢分析儀表板")
-        st.markdown(f"分析週期: **{selected_period_key}** | 時間範圍: **{period}** | 數據間隔: **{interval}**")
+        st.markdown(f"分析週期: **{current_selected_period}** | 時間範圍: **{period}** | 數據間隔: **{interval}**")
         st.markdown("---")
         
         # 數據下載
@@ -473,7 +471,7 @@ def main_app():
             st.markdown(
                 f"""
                 <div style="padding: 15px; border-radius: 10px; border: 1px solid #ccc; background-color: {color_box};">
-                    <p style="font-size: 1.1em; font-weight: bold; margin-bottom: 5px;">當前技術分析判讀 (基於 {selected_period_key})：</p>
+                    <p style="font-size: 1.1em; font-weight: bold; margin-bottom: 5px;">當前技術分析判讀 (基於 {current_selected_period})：</p>
                     <p style="font-size: 1.5em; margin: 0;">{trend_status}</p>
                     <small>最新收盤價: {latest_close:.2f} | 20週期均線: {latest_sma20:.2f}</small>
                 </div>
@@ -493,7 +491,7 @@ def main_app():
                     "分析結論": st.column_config.Column("趨勢/動能判讀", help="基於數值範圍的專業解讀"),
                 }
             )
-            st.caption("ℹ️ **設計師提示:** 表格顏色會根據指標的趨勢/風險等級自動變化（**紅色=多頭/強化信號**（類似低風險買入），**綠色=空頭/削弱信號**（類似高風險賣出），**橙色=中性/警告**）。")
+            st.caption("ℹ️ **設計師提示:** 表格顏色會根據指標的趨勢/風險等級自動變化（**綠色=看多/買入信號**，**紅色=看空/賣出信號**，**橙色=中性/警告**）。")
 
         else:
             st.info("無足夠數據生成關鍵技術指標表格。")
@@ -501,9 +499,9 @@ def main_app():
         st.markdown("---")
         
         st.subheader(f"📊 完整技術分析圖表")
-        chart = create_comprehensive_chart(df, final_symbol_to_analyze, selected_period_key) 
+        chart = create_comprehensive_chart(df, final_symbol_to_analyze, current_selected_period) 
         
-        st.plotly_chart(chart, use_container_width=True, key=f"plotly_chart_{final_symbol_to_analyze}_{selected_period_key}")
+        st.plotly_chart(chart, use_container_width=True, key=f"plotly_chart_{final_symbol_to_analyze}_{current_selected_period}")
 
     elif not st.session_state.get('data_ready', False) and not analyze_button_clicked:
           
