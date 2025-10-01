@@ -518,8 +518,10 @@ def main():
         elif asset_class == "加密貨幣":
             quick_symbols = {k: v for k, v in FULL_SYMBOLS_MAP.items() if k.endswith("-USD")}
         else:
+            # 理論上不會走到這裡，但作為回退
             quick_symbols = FULL_SYMBOLS_MAP
         
+        # 構建下拉選單選項
         quick_select_options = [""] + [f"{s} ({d['name']})" for s, d in quick_symbols.items()]
         
         # 2. 快速選擇標的
@@ -527,6 +529,10 @@ def main():
         
         # 3. 直接輸入代碼
         # 使用 Session State 保持輸入框的值
+        # 如果 Session State 沒有值，給予空字串，避免初始化錯誤
+        if 'sidebar_search_input' not in st.session_state:
+            st.session_state['sidebar_search_input'] = ""
+            
         sidebar_search_input = st.text_input(
             "或 3. 直接輸入代碼 (e.g., TSLA, 2330.TW)", 
             value=st.session_state['sidebar_search_input']
@@ -534,7 +540,8 @@ def main():
         st.session_state['sidebar_search_input'] = sidebar_search_input # 確保 Session State 更新
 
         # 確定最終要分析的代碼
-        final_symbol_to_analyze = st.session_state['last_search_symbol']
+        # 初始化為 Session State 中最後一次使用的代碼 (初次為 '2330.TW')
+        final_symbol_to_analyze = st.session_state.get('last_search_symbol', '2330.TW')
         
         if selected_quick_option:
             # 從下拉選單中提取代碼
@@ -543,7 +550,7 @@ def main():
                 final_symbol_to_analyze = symbol_match.group(1).strip()
         
         if sidebar_search_input:
-            # 使用手動輸入的代碼
+            # 使用手動輸入的代碼 (覆蓋)
             final_symbol_to_analyze = sidebar_search_input.strip().upper()
         
         # 更新 Session State 中的最終代碼
@@ -566,45 +573,54 @@ def main():
 
     # --- 主頁面內容 ---
     
-    # 點擊按鈕或 Session State 中有數據時執行分析流程
+    # 1. 檢查是否需要執行分析邏輯 (點擊按鈕或上次分析成功)
     if analyze_button_clicked or st.session_state.get('data_ready', False):
         
+        # 如果是點擊按鈕，重置 data_ready 狀態，並開始檢查代碼
         if analyze_button_clicked:
-            st.session_state['data_ready'] = False # 重置狀態
+            st.session_state['data_ready'] = False 
 
-        if not final_symbol_to_analyze:
-            st.warning("⚠️ 請在左側輸入或選擇一個標的代碼，然後點擊 **『執行AI分析』**。")
-            return
+            if not final_symbol_to_analyze or final_symbol_to_analyze == st.session_state.get('last_search_symbol_pre_click', ''):
+                # 如果沒有輸入代碼，或代碼與上次點擊時的代碼相同，且上次點擊是成功的，則不執行新的分析。
+                pass
 
-        # 顯示載入中的動畫
-        with st.spinner(f"正在擷取 **{final_symbol_to_analyze}** 的 {selected_period_key} 數據並進行 AI 計算..."):
-            # 獲取數據
-            df_data = get_stock_data(final_symbol_to_analyze, period_yf, interval_yf)
-
-            if df_data is None or df_data.empty:
-                st.error(f"❌ 無法獲取代碼 **{final_symbol_to_analyze}** 的數據。請檢查代碼是否正確或稍後重試。")
-                st.session_state['data_ready'] = False
+            if not final_symbol_to_analyze:
+                st.warning("⚠️ 請在左側輸入或選擇一個標的代碼，然後點擊 **『執行AI分析』**。")
                 return
 
-            # 計算指標
-            df_data = calculate_technical_indicators(df_data)
+            # 顯示載入中的動畫
+            with st.spinner(f"正在擷取 **{final_symbol_to_analyze}** 的 {selected_period_key} 數據並進行 AI 計算..."):
+                # 獲取數據
+                df_data = get_stock_data(final_symbol_to_analyze, period_yf, interval_yf)
 
-            if df_data is None or df_data.empty:
-                st.error("❌ 數據處理失敗，無法計算技術指標。")
-                st.session_state['data_ready'] = False
-                return
+                if df_data is None or df_data.empty:
+                    st.error(f"❌ 無法獲取代碼 **{final_symbol_to_analyze}** 的數據。請檢查代碼是否正確或稍後重試。")
+                    st.session_state['data_ready'] = False
+                    return
 
-            # 儲存數據到 Session State
-            st.session_state['df'] = df_data
-            st.session_state['data_ready'] = True
-            st.session_state['symbol'] = final_symbol_to_analyze
-            st.session_state['period_key'] = selected_period_key
-            
-            # 給用戶一個成功的反饋
-            st.success(f"✅ **{final_symbol_to_analyze}** 的 {selected_period_key} 分析數據已就緒！")
+                # 計算指標
+                df_data = calculate_technical_indicators(df_data)
 
-    # 數據準備好後才顯示結果
-    if st.session_state.get('data_ready', False) and st.session_state.get('symbol') == final_symbol_to_analyze and st.session_state.get('period_key') == selected_period_key:
+                if df_data is None or df_data.empty:
+                    st.error("❌ 數據處理失敗，無法計算技術指標。")
+                    st.session_state['data_ready'] = False
+                    return
+
+                # 儲存數據到 Session State
+                st.session_state['df'] = df_data
+                st.session_state['data_ready'] = True
+                st.session_state['symbol'] = final_symbol_to_analyze
+                st.session_state['period_key'] = selected_period_key
+                st.session_state['last_search_symbol_pre_click'] = final_symbol_to_analyze # 儲存成功時的代碼
+                
+                # 給用戶一個成功的反饋
+                st.success(f"✅ **{final_symbol_to_analyze}** 的 {selected_period_key} 分析數據已就緒！")
+
+
+    # 2. 數據準備好後才顯示結果
+    if st.session_state.get('data_ready', False) and \
+       st.session_state.get('symbol') == final_symbol_to_analyze and \
+       st.session_state.get('period_key') == selected_period_key:
         
         df = st.session_state['df']
         
@@ -671,7 +687,7 @@ def main():
         
         st.plotly_chart(chart, use_container_width=True, key=f"plotly_chart_{final_symbol_to_analyze}_{selected_period_key}")
 
-    # 應用程式啟動或未執行分析時的初始提示
+    # 3. 應用程式啟動或未執行分析時的初始提示 (修正了 HTML/Markdown 語法錯誤)
     else:
           st.info(f"請在左側選擇或輸入標的（例如：**2330.TW**、**NVDA**、**BTC-USD**），然後點擊 <span style='color: #FA8072; font-weight: bold;'>『📊 執行AI分析』</span> 按鈕開始。", unsafe_allow_html=True)
           
@@ -681,6 +697,7 @@ def main():
           st.markdown("1. **選擇資產類別**：在左側欄選擇 `美股`、`台股` 或 `加密貨幣`。")
           st.markdown("2. **選擇標的**：使用下拉選單快速選擇熱門標的，或直接在輸入框中鍵入代碼或名稱。")
           st.markdown("3. **選擇週期**：決定分析的長度（例如：`30 分`、`4 小時`、`1 日`、`1 周`）。")
+          # 修正錯誤：移除了 HTML 標籤內多餘的 **，確保 Markdown 正確解析
           st.markdown(f"4. **執行分析**：點擊 <span style='color: #FA8072; font-weight: bold;'>『📊 執行AI分析』</span>，AI將融合基本面與技術面指標提供交易策略。", unsafe_allow_html=True)
           
           st.markdown("---")
@@ -694,5 +711,7 @@ if __name__ == '__main__':
         st.session_state['data_ready'] = False
     if 'sidebar_search_input' not in st.session_state:
         st.session_state['sidebar_search_input'] = ""
+    if 'last_search_symbol_pre_click' not in st.session_state:
+        st.session_state['last_search_symbol_pre_click'] = ""
         
     main()
