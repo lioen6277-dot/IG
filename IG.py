@@ -80,13 +80,15 @@ def load_data(symbol, period, interval):
             st.error(f"⚠️ 無法獲取 **{symbol}** 在 {interval} 週期下的數據。請檢查代碼或更換週期。")
             return None
         
-        # **關鍵修正：修復 'tuple' object has no attribute 'capitalize' 錯誤**
         # 即使欄位是 MultiIndex 或 Tuple，先安全地轉成 string 再 capitalize
         df.columns = [str(col).capitalize() for col in df.columns]
         
-        # 對於高頻數據（例如 30m, 60m），移除不必要的 'Volume' 0 值行
-        if 'm' in interval or 'h' in interval:
+        # **關鍵修正：增加 Volume 欄位檢查**
+        # 僅在是高頻數據且 Volume 欄位存在時，才移除 Volume 0 值行
+        if ('m' in interval or 'h' in interval) and 'Volume' in df.columns:
             df = df[df['Volume'] > 0]
+        elif 'Volume' not in df.columns:
+            st.warning("ℹ️ 數據中缺少 **成交量 (Volume)** 欄位，這可能會影響部分指標的計算。")
 
         st.success(f"✅ **{symbol}** 數據下載完成。共 {len(df)} 條紀錄。")
         return df
@@ -129,7 +131,12 @@ def add_technical_indicators(df):
     df['DI_Minus'] = adx.adx_neg()
 
     # --- 3. 成交量指標 (Volume Indicators) ---
-    df['OBV'] = ta.volume.on_balance_volume(df['Close'], df['Volume'])
+    # 僅在 Volume 欄位存在時計算 OBV
+    if 'Volume' in df.columns:
+        df['OBV'] = ta.volume.on_balance_volume(df['Close'], df['Volume'])
+    else:
+        # 即使沒有 OBV 也不影響後續指標計算，僅需給予一個空欄位或跳過
+        pass
 
     # 移除計算指標所需的NaN值，但保留至少150根K線用於顯示
     df = df.dropna().tail(150) 
@@ -139,7 +146,11 @@ def add_technical_indicators(df):
 def analyze_indicator_status(df, indicator_name, period_key):
     """根據指標的最新值和週期，提供分析結論和顏色代碼。"""
     
-    latest_value = df[indicator_name].iloc[-1]
+    # 處理數據不足的情況
+    if indicator_name not in df.columns and indicator_name != 'Price vs MA':
+        return "N/A", "數據不足", 'gray'
+
+    latest_value = df[indicator_name].iloc[-1] if indicator_name in df.columns else None
     
     # 針對不同週期調整判讀策略
     if "日" in period_key or "週" in period_key:
