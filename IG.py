@@ -440,7 +440,7 @@ def main_app():
         # --- 數據驗證：這裡可能就是原先第 482 行 'return' 的位置 ---
         if df.empty:
             st.session_state['data_ready'] = False
-            # ** 修正：用 st.stop() 替換原本的 return **
+            # 修正: 用 st.stop() 替換原本的 return
             st.warning("數據載入失敗或數據不足，請檢查標的代碼或稍後再試。")
             st.stop() # 停止 Streamlit 繼續執行後續分析邏輯
             
@@ -454,11 +454,13 @@ def main_app():
         st.title(f"🚀 {final_symbol_to_analyze} AI 趨勢分析儀表板")
         st.markdown(f"**分析週期:** {selected_period_key} | **時間範圍:** {period} | **數據間隔:** {interval}")
         st.caption(f"數據時間範圍: {df['Date'].min().strftime('%Y-%m-%d')} 至 {df['Date'].max().strftime('%Y-%m-%d')}")
-        st.markdown(\"\"\"
+        
+        # 修正：移除 st.markdown 的轉義斜線
+        st.markdown("""
         <style>
-        .st-emotion-cache-1r6c2qf {{ font-weight: bold; font-size: 1.1em; }}
+        .st-emotion-cache-1r6c2qf { font-weight: bold; font-size: 1.1em; }
         </style>
-        \"\"\", unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
         
         st.markdown("---")
 
@@ -493,10 +495,11 @@ def main_app():
         st.plotly_chart(chart, use_container_width=True, key=f"plotly_chart_{final_symbol_to_analyze}_{selected_period_key}")
 
     elif not st.session_state.get('data_ready', False) and not analyze_button_clicked:
-          st.info(\"\"\"
+          # 修正：移除 st.info 的轉義斜線
+          st.info("""
           <h4 style='color: #4A90E2; font-weight: bold;'>歡迎使用 AI 趨勢分析儀表板！</h4>
           請在左側選擇或輸入標的（例如 **TSLA**、**2330.TW**、**BTC-USD**），然後點擊 <span style='color: #FA8072; font-weight: bold;'>『📊 執行AI分析』</span> 按鈕開始。
-          \"\"\", unsafe_allow_html=True)
+          """, unsafe_allow_html=True)
           
           st.markdown("---")
           
