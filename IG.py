@@ -1,347 +1,698 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IG 輪播圖 (3 頁) 專業原型</title>
-    <!-- 載入 Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
-    <style>
-        /* 自定義顏色和字體，確保符合 IG 的視覺衝擊力 */
-        :root {
-            --bg-deep-navy: #0B172A; /* 基礎深色科技背景 */
-            --color-blue: #00A3FF; /* 趨勢藍 */
-            --color-orange: #FF4D00; /* 警示橙 */
-        }
+import streamlit as st
+import yfinance as yf
+import pandas as pd
+import numpy as np
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+import ta
+import warnings
+import time
+import re 
+from datetime import datetime, timedelta
+
+# 忽略所有警告 (例如 pandas 的 SettingWithCopyWarning)
+warnings.filterwarnings('ignore')
+
+# ==============================================================================
+# 1. 頁面配置與全局設定
+# ==============================================================================
+
+st.set_page_config(
+    page_title="🤖 AI趨勢分析儀表板 📈", 
+    page_icon="📈", 
+    layout="wide"
+)
+
+# 週期映射：(YFinance Period, YFinance Interval)
+PERIOD_MAP = { 
+    "30 分 (短期)": ("60d", "30m"), 
+    "4 小時 (波段)": ("1y", "60m"), 
+    "1 日 (中長線)": ("5y", "1d"), 
+    "1 週 (長期)": ("max", "1wk")
+}
+
+# 🚀 您的【所有資產清單】(FULL_SYMBOLS_MAP)
+FULL_SYMBOLS_MAP = {
+    # ----------------------------------------------------
+    # A. 美股核心 (US Stocks) - 個股
+    # ----------------------------------------------------
+    "TSLA": {"name": "特斯拉", "keywords": ["特斯拉", "電動車", "TSLA", "Tesla"]},
+    "NVDA": {"name": "輝達", "keywords": ["輝達", "英偉達", "AI", "NVDA", "Nvidia"]},
+    "AMZN": {"name": "亞馬遜", "keywords": ["亞馬遜", "電商", "AMZN", "Amazon"]},
+    "GOOGL": {"name": "谷歌", "keywords": ["谷歌", "搜尋", "GOOGL", "Alphabet"]},
+    "AAPL": {"name": "蘋果", "keywords": ["蘋果", "手機", "AAPL", "Apple"]},
+    # ----------------------------------------------------
+    # B. 台股核心 (Taiwan Stocks) - 個股
+    # ----------------------------------------------------
+    "2330.TW": {"name": "台積電", "keywords": ["台積電", "晶圓", "2330", "TSMC"]},
+    "2317.TW": {"name": "鴻海", "keywords": ["鴻海", "電子", "2317", "Foxconn"]},
+    "2454.TW": {"name": "聯發科", "keywords": ["聯發科", "手機晶片", "2454", "MediaTek"]},
+    # ----------------------------------------------------
+    # C. 加密貨幣 (Crypto)
+    # ----------------------------------------------------
+    "BTC-USD": {"name": "比特幣", "keywords": ["比特幣", "BTC", "Bitcoin"]},
+    "ETH-USD": {"name": "以太幣", "keywords": ["以太幣", "ETH", "Ethereum"]},
+    # ----------------------------------------------------
+}
+
+
+# ==============================================================================
+# 2. 資料獲取與技術指標計算函式
+# ==============================================================================
+
+@st.cache_data(ttl=3600) # 緩存數據一小時
+def get_stock_data(symbol, period, interval):
+    """
+    從 yfinance 下載股價數據並處理。
+    """
+    try:
+        # 嘗試下載數據，設置超時和重試機制
+        data = yf.download(
+            tickers=symbol, 
+            period=period, 
+            interval=interval, 
+            timeout=10, 
+            progress=False
+        )
         
-        .ig-slide {
-            width: 400px; /* 固定寬度 */
-            height: 600px; /* 4:5 垂直比例，模擬 IG 貼文最佳尺寸 */
-            background-color: var(--bg-deep-navy);
-            font-family: 'Inter', sans-serif;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
-            margin: 20px auto; /* 居中顯示 */
-            border-radius: 12px;
-            overflow: hidden;
-            position: relative;
-            transform-style: preserve-3d;
-            transition: transform 0.5s ease-in-out, opacity 0.5s ease-in-out;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            display: none; /* 預設隱藏，由 JS 控制顯示 */
-        }
-
-        .ig-slide.active {
-            display: flex;
-            opacity: 1;
-        }
-
-        /* 自定義 utility class */
-        .bg-deep-navy { background-color: var(--bg-deep-navy); }
-        .text-trend-blue { color: var(--color-blue); }
-        .bg-trend-blue { background-color: var(--color-blue); }
-        .text-alert-orange { color: var(--color-orange); }
-        .text-pure-white { color: #FFFFFF; }
-        .text-shadow-glow { text-shadow: 0 0 5px rgba(0, 163, 255, 0.7), 0 0 10px rgba(0, 163, 255, 0.5); }
-        .cta-glow { box-shadow: 0 0 15px rgba(255, 77, 0, 0.8); }
-
-        /* 浮水印樣式 */
-        .watermark {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) rotate(-20deg);
-            color: rgba(255, 255, 255, 0.05); /* 極輕微融入背景 */
-            font-size: 8rem;
-            font-weight: 900;
-            user-select: none;
-            pointer-events: none;
-            z-index: 0;
-        }
-
-        /* 模擬 Streamlit 截圖 */
-        .screenshot-placeholder {
-            width: 90%;
-            height: 250px;
-            background-color: #2D3748; /* 模擬深色應用程式介面 */
-            border: 1px solid #4A5568;
-            border-radius: 8px;
-            overflow: hidden;
-            position: relative;
-        }
-
-        .screenshot-watermark {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: rgba(255, 255, 255, 0.15); /* 截圖上更明顯的 LOGO */
-            font-size: 3rem;
-            font-weight: 700;
-        }
-    </style>
-</head>
-<body class="bg-gray-800 p-8">
-
-    <h1 class="text-3xl font-bold text-white text-center mb-6">🤖 AI 交易信號 IG 輪播圖原型</h1>
-    <div id="carousel-container" class="flex flex-col items-center">
-        <!-- 輪播圖導航按鈕 -->
-        <div class="flex space-x-4 mb-6">
-            <button onclick="showSlide(0)" id="btn-0" class="px-4 py-2 rounded-full text-sm font-semibold bg-gray-700 text-white transition hover:bg-gray-600">Page 1: 結論</button>
-            <button onclick="showSlide(1)" id="btn-1" class="px-4 py-2 rounded-full text-sm font-semibold bg-gray-700 text-white transition hover:bg-gray-600">Page 2: 驗證</button>
-            <button onclick="showSlide(2)" id="btn-2" class="px-4 py-2 rounded-full text-sm font-semibold bg-gray-700 text-white transition hover:bg-gray-600">Page 3: CTA</button>
-        </div>
+        # 檢查數據是否為空
+        if data.empty:
+            return None
         
-        <!-- -------------------------------------------------- -->
-        <!-- Page 1: 趨勢信號卡 (結論頁) -->
-        <!-- -------------------------------------------------- -->
-        <div id="slide-0" class="ig-slide flex-col justify-between p-6">
-            <div class="watermark">AI EYE</div> <!-- 浮水印品牌識別 -->
+        # 重新命名欄位以符合 ta 函式庫的要求
+        data.columns = [col.capitalize() for col in data.columns]
+        
+        return data.dropna()
+    except Exception as e:
+        st.error(f"❌ 無法獲取代碼 **{symbol}** 的數據。請檢查代碼是否正確或稍後重試。錯誤: {e}")
+        return None
 
-            <!-- 頂部資訊：標的名稱與代碼 -->
-            <header class="z-10">
-                <p class="text-sm font-light text-gray-400">AI 趨勢分析 | 1 日 (中長線)</p>
-                <h2 class="text-4xl font-extrabold text-pure-white mt-1">特斯拉</h2>
-                <span class="text-lg font-mono text-pure-white">$TSLA</span>
-            </header>
+def calculate_technical_indicators(df):
+    """
+    計算一系列關鍵技術指標。
+    """
+    if df is None or df.empty:
+        return None
 
-            <!-- 核心目標：AI 結論極致突出 (BUY/SELL) -->
-            <main class="text-center z-10 -mt-8">
-                <div class="text-sm font-bold tracking-wider text-gray-300 uppercase">AI Final Conclusion</div>
-                <!-- 根據 conclusion 動態調整顏色和樣式 -->
-                <h1 id="conclusion-text" class="text-8xl font-black mt-2 leading-none text-trend-blue text-shadow-glow">
-                    買入
-                </h1>
-                <p class="text-xl font-semibold text-gray-300 mt-2">潛在多頭趨勢確立</p>
-            </main>
+    # 1. 動量指標 (Momentum Indicators)
+    df['RSI'] = ta.momentum.rsi(df['Close'], window=14)
+    df['Stoch_K'] = ta.momentum.stoch(df['High'], df['Low'], df['Close'], window=14, smooth_window=3)
+    df['Stoch_D'] = ta.momentum.stoch_signal(df['High'], df['Low'], df['Close'], window=14, smooth_window=3)
 
-            <!-- 交易參數：交易指令單 -->
-            <footer class="z-10">
-                <div class="bg-gray-800/50 backdrop-blur-sm p-4 rounded-xl space-y-2">
-                    <div class="flex justify-between border-b border-gray-700 pb-1">
-                        <span class="text-sm text-gray-400">最新價格 (Last)</span>
-                        <span id="latest-price" class="text-lg font-bold text-pure-white">$195.88</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-sm text-gray-400">入場參考 (Entry)</span>
-                        <span id="entry-price" class="text-base font-semibold text-trend-blue">$194.50</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-sm text-gray-400">止盈點 (TP)</span>
-                        <span id="tp-price" class="text-base font-semibold text-green-400">$210.00</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-sm text-gray-400">止損點 (SL)</span>
-                        <span id="sl-price" class="text-base font-semibold text-alert-orange">$188.00</span>
-                    </div>
-                </div>
-                <!-- 導流提示 -->
-                <p class="text-center text-sm font-semibold text-trend-blue mt-4">詳情見 App，請向左滑動 →</p>
-            </footer>
-        </div>
+    # 2. 趨勢指標 (Trend Indicators)
+    df['SMA_20'] = ta.trend.sma_indicator(df['Close'], window=20)
+    df['SMA_60'] = ta.trend.sma_indicator(df['Close'], window=60)
+    df['MACD'] = ta.trend.macd(df['Close'])
+    df['MACD_Signal'] = ta.trend.macd_signal(df['Close'])
+    df['MACD_Hist'] = ta.trend.macd_diff(df['Close'])
+    df['ADX'] = ta.trend.adx(df['High'], df['Low'], df['Close'], window=14)
 
-        <!-- -------------------------------------------------- -->
-        <!-- Page 2: 儀表板數據驗證 (信任頁) -->
-        <!-- -------------------------------------------------- -->
-        <div id="slide-1" class="ig-slide flex-col justify-between p-6">
-            <div class="watermark">DATA</div> <!-- 浮水印品牌識別 -->
+    # 3. 波動性指標 (Volatility Indicators)
+    bollinger = ta.volatility.BollingerBands(df['Close'], window=20, window_dev=2)
+    df['BB_High'] = bollinger.bollinger_hband()
+    df['BB_Low'] = bollinger.bollinger_lband()
+    df['BB_Mid'] = bollinger.bollinger_mavg()
+    df['ATR'] = ta.volatility.average_true_range(df['High'], df['Low'], df['Close'], window=14)
 
-            <!-- 頂部資訊：標題與引導文案 -->
-            <header class="z-10">
-                <h2 class="text-3xl font-extrabold text-pure-white">數據為證。AI 絕非臆測。</h2>
-                <p class="text-sm font-light text-gray-400 mt-2">AI 判讀背後的數據支撐：MACD 黃金交叉，RSI 動能強勁。</p>
-            </header>
+    # 移除計算指標時產生的 NaN 行
+    df = df.dropna()
 
-            <!-- 核心內容：Streamlit 截圖模擬 -->
-            <main class="flex justify-center z-10 flex-col items-center">
-                <div class="screenshot-placeholder">
-                    <div class="screenshot-watermark">AI EYE 驗證截圖</div>
-                    <!-- 模擬 Streamlit 關鍵指標表格截圖 -->
-                    <img id="app-screenshot" src="https://placehold.co/400x250/2D3748/A0AEC0?text=Streamlit+App+關鍵指標截圖" onerror="this.src='https://placehold.co/400x250/2D3748/A0AEC0?text=Streamlit+App+關鍵指標截圖';" alt="Streamlit 關鍵指標截圖" class="w-full h-full object-cover opacity-75">
-                    
-                    <!-- 模擬突出顯示的 MACD/RSI -->
-                    <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-4/5 p-2 bg-black/50 rounded-lg">
-                        <p class="text-xs text-white font-mono flex justify-between">
-                            <span class="text-gray-400">MACD 黃金交叉:</span>
-                            <span class="text-green-400 font-bold">+0.55</span>
-                        </p>
-                        <p class="text-xs text-white font-mono flex justify-between">
-                            <span class="text-gray-400">RSI 多頭動能:</span>
-                            <span class="text-green-400 font-bold">68.21</span>
-                        </p>
-                    </div>
-                </div>
-                <!-- 模擬 Streamlit 表格數據 -->
-                <div id="indicator-list" class="mt-4 w-11/12 text-sm text-gray-300">
-                    <!-- JS 會在此處生成指標列表 -->
-                </div>
-            </main>
+    return df
 
-            <!-- 導流提示 -->
-            <footer class="z-10">
-                <p class="text-center text-sm font-semibold text-trend-blue mt-4">更多回測與細節，請向左滑動 →</p>
-            </footer>
-        </div>
+# ==============================================================================
+# 3. 數據與策略分析函式
+# ==============================================================================
 
-        <!-- -------------------------------------------------- -->
-        <!-- Page 3: 行動呼籲專頁 (獲利導流頁) -->
-        <!-- -------------------------------------------------- -->
-        <div id="slide-2" class="ig-slide flex-col justify-around items-center p-6 text-center">
-            <div class="watermark">CTA</div> <!-- 浮水印品牌識別 -->
+def analyze_indicator(name, value, last_close):
+    """
+    根據技術指標的最新值提供分析結論和風險等級。
+    """
+    if pd.isna(value):
+        return {"最新值": np.nan, "分析結論": "數據不足", "風險等級": 0}
+
+    value = round(value, 2)
+    
+    # 設置風險等級 (0: 數據不足/中性, 1: 弱空/警告, 2: 強空/賣出, 3: 弱多/注意, 4: 強多/買入)
+    
+    if name == "RSI (14)":
+        if value > 70:
+            conclusion = "超買區，動能過強，留意回調風險。"
+            risk_level = 2 # 潛在賣出信號 (空頭)
+        elif value < 30:
+            conclusion = "超賣區，動能過弱，留意反彈機會。"
+            risk_level = 4 # 潛在買入信號 (多頭)
+        elif value >= 50:
+            conclusion = "多頭佔優，位於強勢區。"
+            risk_level = 3
+        else:
+            conclusion = "空頭佔優，位於弱勢區。"
+            risk_level = 1
+    
+    elif name == "Stoch K/D (14,3)":
+        # Stoch K/D 是兩個值，我們只看 K 值作為主要參考
+        k_value = value 
+        if k_value > 80:
+            conclusion = "超買區，動能可能耗盡，留意賣出訊號。"
+            risk_level = 2
+        elif k_value < 20:
+            conclusion = "超賣區，動能有機會反轉，留意買入訊號。"
+            risk_level = 4
+        else:
+            conclusion = "中性區間。"
+            risk_level = 0
+
+    elif name == "MACD 柱狀體":
+        if value > 0 and value > 0.01:
+            conclusion = "多頭動能持續增強。"
+            risk_level = 4
+        elif value < 0 and value < -0.01:
+            conclusion = "空頭動能持續增強。"
+            risk_level = 2
+        else:
+            conclusion = "動能趨於平穩，觀望。"
+            risk_level = 0
             
-            <!-- 標題 (CTA) 強力指令 -->
-            <header class="z-10">
-                <h1 class="text-4xl md:text-5xl font-black text-pure-white leading-tight">
-                    想驗證 AI 策略？
-                </h1>
-                <h2 class="text-5xl md:text-6xl font-black text-alert-orange cta-glow">
-                    立即行動！
-                </h2>
-            </header>
+    elif name == "短期趨勢 (SMA 20)":
+        # 價格與 20 日均線的關係
+        if last_close > value:
+            conclusion = "股價位於短期均線之上，趨勢偏多。"
+            risk_level = 4
+        else:
+            conclusion = "股價位於短期均線之下，趨勢偏空。"
+            risk_level = 2
+    
+    elif name == "中長期趨勢 (SMA 60)":
+        # 價格與 60 日均線的關係
+        if last_close > value:
+            conclusion = "股價位於中長期均線之上，趨勢強勁。"
+            risk_level = 4
+        else:
+            conclusion = "股價位於中長期均線之下，趨勢轉弱。"
+            risk_level = 2
 
-            <!-- 核心視覺導航指引 -->
-            <main class="z-10 space-y-6">
-                <div class="text-pure-white">
-                    <!-- 趨勢代碼 LOGO 模擬 (使用 SVG/Emoji) -->
-                    <svg class="w-20 h-20 mx-auto text-trend-blue animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                    </svg>
-                    <p class="text-xl font-bold mt-2 text-pure-white">$TSLA | 專屬 AI 策略</p>
-                </div>
+    elif name == "ADX (14)":
+        if value > 25:
+            conclusion = "趨勢動能強勁 (無論漲跌)。"
+            risk_level = 3 # 趨勢強度高
+        elif value < 20:
+            conclusion = "趨勢動能微弱，可能進入盤整。"
+            risk_level = 1 # 趨勢強度低
+        else:
+            conclusion = "趨勢動能適中。"
+            risk_level = 0
 
-                <!-- 點擊主頁連結指令 -->
-                <div class="p-3 rounded-full bg-alert-orange hover:bg-red-600 transition duration-300">
-                    <p class="text-lg font-bold text-pure-white tracking-widest">
-                        點擊主頁連結 [您的 App 連結]
-                    </p>
-                </div>
-                
-                <!-- 醒目的箭頭 指向 Instagram Bio 連結的方向 -->
-                <div class="text-4xl text-pure-white animate-bounce">
-                    ⬇️ (IG Bio 在下方!)
-                </div>
-            </main>
+    elif name == "布林帶 (BBands)":
+        # 價格與布林帶邊界的關係
+        bb_mid = value # 這裡假設 value 傳入的是 BB_Mid (中軌)
+        
+        # 為了更準確的判斷，我們需要 BB_High 和 BB_Low 的值，但為了簡化，先以中軌為參考
+        # 實際應用中，應額外傳入 high/low 值
+        if last_close > bb_mid:
+            conclusion = "價格在中軌之上，短期偏多。"
+            risk_level = 3
+        else:
+            conclusion = "價格在中軌之下，短期偏空。"
+            risk_level = 1
             
-            <!-- 免責聲明風險提示 -->
-            <footer class="z-10">
-                <p class="text-xs text-red-400 font-semibold mt-4">
-                    ⚠️ 免責聲明：所有策略僅供參考，不構成投資建議。投資涉及風險。
-                </p>
-            </footer>
-        </div>
-    </div>
+    else:
+        conclusion = "中性或不適用。"
+        risk_level = 0
 
-    <script>
-        // 模擬 Streamlit App 產生的數據
-        const MOCK_DATA = {
-            symbol: "TSLA",
-            name: "特斯拉",
-            period: "1 日 (中長線)",
-            conclusion: "BUY", // 可以是 "BUY" 或 "SELL"
-            latestPrice: 195.88,
-            entryPrice: 194.50,
-            tp: 210.00,
-            sl: 188.00,
-            updateTime: "2025/10/01 09:30 UTC+8",
-            // 模擬 Streamlit App 的指標輸出 (對應 app2.0.py 的 st.dataframe)
-            indicators: [
-                { indicator: "MACD (12, 26, 9)", latestValue: "+0.55", conclusion: "黃金交叉 / 動能強化", signal: "strong_buy" },
-                { indicator: "RSI (14)", latestValue: "68.21", conclusion: "強勢區 / 多頭動能", signal: "buy" },
-                { indicator: "KDJ (9, 3, 3)", latestValue: "K: 85.3, D: 79.1", conclusion: "超買區 / 警告訊號", signal: "warning" },
-                { indicator: "SMA (50)", latestValue: "180.12", conclusion: "價格位於均線上方", signal: "neutral" },
-            ],
-            // 由於無法載入本地截圖，這裡使用一個預設圖片作為演示
-            appScreenshotUrl: "https://placehold.co/400x250/2D3748/A0AEC0?text=Streamlit+App+關鍵指標截圖", 
-            appLink: "https://your.app.link"
-        };
+    return {"最新值": value, "分析結論": conclusion, "風險等級": risk_level}
 
-        let currentSlide = 0;
-        const slides = document.querySelectorAll('.ig-slide');
-        const totalSlides = slides.length;
+def generate_technical_summary(df):
+    """
+    提取最新的技術指標並生成總結數據框。
+    """
+    if df is None or df.empty:
+        return None, 0, 0, 0
 
-        /**
-         * 根據 MOCK_DATA 初始化頁面 1 和頁面 2 的動態內容。
-         */
-        function initializeContent() {
-            // --- Page 1 Initialization ---
-            const conclusion = MOCK_DATA.conclusion.toUpperCase();
-            const colorClass = conclusion === 'BUY' ? 'text-trend-blue' : 'text-alert-orange';
-            const conclusionText = conclusion === 'BUY' ? '買入' : '賣出';
-            const actionText = conclusion === 'BUY' ? '潛在多頭趨勢確立' : '警示空頭趨勢確立';
+    # 獲取最新一筆數據
+    latest = df.iloc[-1]
+    last_close = latest['Close']
 
-            document.getElementById('conclusion-text').textContent = conclusionText;
-            document.getElementById('conclusion-text').className = `text-8xl font-black mt-2 leading-none text-pure-white text-shadow-glow ${colorClass}`;
-            document.querySelector('#slide-0 main p').textContent = actionText;
+    indicators = [
+        ("RSI (14)", latest['RSI']),
+        ("Stoch K/D (14,3)", latest['Stoch_K']), # 這裡只用 K 值代表
+        ("MACD 柱狀體", latest['MACD_Hist']),
+        ("短期趨勢 (SMA 20)", latest['SMA_20']),
+        ("中長期趨勢 (SMA 60)", latest['SMA_60']),
+        ("ADX (14)", latest['ADX']),
+        ("布林帶 (BBands)", latest['BB_Mid']), # 用中軌代表布林帶
+    ]
+    
+    summary_list = []
+    bull_count = 0
+    bear_count = 0
+    
+    for name, value in indicators:
+        analysis = analyze_indicator(name, value, last_close)
+        summary_list.append({
+            "指標名稱": name,
+            "最新值": analysis["最新值"],
+            "分析結論": analysis["分析結論"],
+            "風險等級": analysis["風險等級"]
+        })
+        
+        # 統計多頭/空頭信號
+        if analysis["風險等級"] in [3, 4]:
+            bull_count += 1
+        elif analysis["風險等級"] in [1, 2]:
+            bear_count += 1
+
+    summary_df = pd.DataFrame(summary_list)
+    
+    # 總結趨勢
+    if bull_count > bear_count:
+        trend_conclusion = "整體趨勢偏多，多頭信號數量佔優。"
+        overall_risk_level = 4
+    elif bear_count > bull_count:
+        trend_conclusion = "整體趨勢偏空，空頭信號數量佔優。"
+        overall_risk_level = 2
+    else:
+        trend_conclusion = "多空信號平衡，市場處於盤整或觀望狀態。"
+        overall_risk_level = 0
+        
+    return summary_df, bull_count, bear_count, overall_risk_level
+
+def generate_ai_analysis_text(symbol, df, summary_df, bull_count, bear_count, overall_risk_level, period_key):
+    """
+    根據技術指標和整體趨勢生成 AI 分析報告。
+    """
+    if df is None or df.empty or summary_df is None or summary_df.empty:
+        return "數據不足，無法生成 AI 分析報告。"
+
+    latest = df.iloc[-1]
+    price = round(latest['Close'], 2)
+    date = latest.name.strftime('%Y-%m-%d %H:%M')
+
+    # 翻譯趨勢結論
+    if overall_risk_level == 4:
+        trend_text = "強勁多頭"
+        advice = "建議持續關注做多機會，並以短期和中長期均線作為防守支撐。"
+    elif overall_risk_level == 3:
+        trend_text = "偏向多頭"
+        advice = "多頭佔優，但需留意動能是否持續，可考慮輕倉做多或等待更明確信號。"
+    elif overall_risk_level == 2:
+        trend_text = "偏向空頭"
+        advice = "空頭佔優，建議保守觀望或考慮輕倉做空，並將近期高點設為壓力參考。"
+    elif overall_risk_level == 1:
+        trend_text = "強勁空頭"
+        advice = "趨勢偏空，應嚴格控制風險，不宜貿然進場，耐心等待趨勢反轉信號。"
+    else:
+        trend_text = "中性盤整"
+        advice = "多空平衡，市場方向不明確，建議觀望，直到價格突破關鍵壓力或支撐位。"
+
+    # 提取關鍵指標的結論
+    rsi_conclusion = summary_df[summary_df['指標名稱'].str.contains('RSI')]['分析結論'].iloc[0]
+    macd_conclusion = summary_df[summary_df['指標名稱'].str.contains('MACD')]['分析結論'].iloc[0]
+    sma20_conclusion = summary_df[summary_df['指標名稱'].str.contains('SMA 20')]['分析結論'].iloc[0]
+    bb_conclusion = summary_df[summary_df['指標名稱'].str.contains('布林帶')]['分析結論'].iloc[0]
+
+    # 生成報告
+    report = f"""
+    ### 🤖 AI趨勢分析報告：{symbol} ({period_key})
+    
+    * **分析時間點：** {date}
+    * **最新收盤價：** ${price}
+    
+    #### 💡 整體趨勢判讀 ({trend_text})
+    
+    根據 **{bull_count} 個多頭信號** 和 **{bear_count} 個空頭信號** 的綜合判斷，目前市場趨勢為 **{trend_text}**。
+    
+    #### 📈 動能與趨勢細節
+    
+    * **RSI 動能：** {rsi_conclusion}
+    * **MACD 動能：** {macd_conclusion}
+    * **短期趨勢 (SMA 20)：** {sma20_conclusion}
+    * **波動性 (布林帶)：** {bb_conclusion}
+    
+    #### 🎯 AI 建議交易策略
+    
+    鑑於目前的 {period_key} 走勢，交易者應採取以下策略：
+    1.  **主要操作：** {advice}
+    2.  **關鍵支撐位 (參考近 20 根 K 線低點)：** 約 ${round(df['Low'].min(), 2)}
+    3.  **關鍵壓力位 (參考近 20 根 K 線高點)：** 約 ${round(df['High'].max(), 2)}
+    
+    ---
+    * **免責聲明：** 本報告由 AI 模型生成，僅供技術分析參考，不構成任何投資建議。交易有風險，入市需謹慎。
+    """
+    return report
+
+# ==============================================================================
+# 4. 圖表繪製函式
+# ==============================================================================
+
+def create_comprehensive_chart(df, symbol, period_key):
+    """
+    使用 Plotly 創建包含 K 線圖、MACD 和 RSI 的綜合圖表。
+    """
+    if df is None or df.empty:
+        return go.Figure()
+
+    # 設置子圖
+    # row 1: K線圖 (高度佔比 3)
+    # row 2: MACD (高度佔比 1)
+    # row 3: RSI (高度佔比 1)
+    fig = make_subplots(
+        rows=3, 
+        cols=1, 
+        shared_xaxes=True, 
+        vertical_spacing=0.05, 
+        row_heights=[0.6, 0.2, 0.2]
+    )
+
+    # --- 1. K線圖 (Candlestick Chart) ---
+    fig.add_trace(
+        go.Candlestick(
+            x=df.index,
+            open=df['Open'],
+            high=df['High'],
+            low=df['Low'],
+            close=df['Close'],
+            name='K線',
+            increasing_line_color='#FF4B4B', # 紅色 K 棒
+            decreasing_line_color='#00CC96', # 綠色 K 棒
+        ), 
+        row=1, col=1
+    )
+
+    # 20日均線
+    fig.add_trace(
+        go.Scatter(
+            x=df.index, 
+            y=df['SMA_20'], 
+            line=dict(color='#FECB52', width=1.5), 
+            name='SMA 20'
+        ), 
+        row=1, col=1
+    )
+
+    # 60日均線
+    fig.add_trace(
+        go.Scatter(
+            x=df.index, 
+            y=df['SMA_60'], 
+            line=dict(color='#636EFA', width=1.5), 
+            name='SMA 60'
+        ), 
+        row=1, col=1
+    )
+    
+    # 布林帶
+    fig.add_trace(
+        go.Scatter(
+            x=df.index, 
+            y=df['BB_High'], 
+            line=dict(color='rgba(255, 165, 0, 0.5)', width=0.5), 
+            name='BB High', 
+            hoverinfo='none', 
+            showlegend=False
+        ), 
+        row=1, col=1
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=df.index, 
+            y=df['BB_Low'], 
+            line=dict(color='rgba(255, 165, 0, 0.5)', width=0.5), 
+            name='BB Low',
+            fill='tonexty', # 填充上下軌之間的區域
+            fillcolor='rgba(255, 165, 0, 0.1)',
+            hoverinfo='none',
+            showlegend=False
+        ), 
+        row=1, col=1
+    )
+
+
+    # --- 2. MACD 圖 ---
+    fig.add_trace(
+        go.Bar(
+            x=df.index, 
+            y=df['MACD_Hist'], 
+            name='MACD 柱狀體',
+            marker_color=[
+                '#FF4B4B' if val > 0 else '#00CC96' for val in df['MACD_Hist']
+            ]
+        ), 
+        row=2, col=1
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=df.index, 
+            y=df['MACD'], 
+            line=dict(color='orange', width=1), 
+            name='MACD 線'
+        ), 
+        row=2, col=1
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=df.index, 
+            y=df['MACD_Signal'], 
+            line=dict(color='blue', width=1), 
+            name='Signal 線'
+        ), 
+        row=2, col=1
+    )
+
+    # --- 3. RSI 圖 ---
+    fig.add_trace(
+        go.Scatter(
+            x=df.index, 
+            y=df['RSI'], 
+            line=dict(color='#17BECF', width=1.5), 
+            name='RSI'
+        ), 
+        row=3, col=1
+    )
+    # 標記 RSI 的超買/超賣區
+    fig.add_hline(y=70, line_dash="dash", line_color="red", row=3, col=1)
+    fig.add_hline(y=30, line_dash="dash", line_color="green", row=3, col=1)
+    fig.update_yaxes(range=[0, 100], row=3, col=1)
+
+    # --- 佈局設置 ---
+    fig.update_layout(
+        title=f'**{symbol}** - {period_key} 技術分析圖',
+        xaxis_rangeslider_visible=False, # 隱藏底部的時間軸滑塊
+        xaxis=dict(type='category'),
+        height=900,
+        hovermode="x unified",
+        margin=dict(l=20, r=20, t=50, b=20),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+    )
+
+    # 設置每個子圖的標題
+    fig.update_yaxes(title_text='價格/均線', row=1, col=1, title_font=dict(size=14))
+    fig.update_yaxes(title_text='MACD', row=2, col=1, title_font=dict(size=14))
+    fig.update_yaxes(title_text='RSI', row=3, col=1, title_font=dict(size=14))
+    
+    # 隱藏子圖之間的 x 軸標籤
+    fig.update_xaxes(showticklabels=False, row=1, col=1)
+    fig.update_xaxes(showticklabels=False, row=2, col=1)
+
+    return fig
+
+# ==============================================================================
+# 5. 主程式
+# ==============================================================================
+
+def main():
+    # 標題
+    st.title("🤖 AI 趨勢分析儀表板 📈")
+    st.markdown("---")
+
+    # --- 側邊欄輸入控制 ---
+    with st.sidebar:
+        st.header("⚙️ 數據與參數設置")
+        
+        # 1. 選擇資產類別
+        asset_class = st.selectbox("選擇資產類別", ["美股", "台股", "加密貨幣"], index=0)
+
+        # 根據資產類別過濾標的
+        if asset_class == "美股":
+            quick_symbols = {k: v for k, v in FULL_SYMBOLS_MAP.items() if k not in ["2330.TW", "2317.TW", "2454.TW"] and "USD" not in k}
+        elif asset_class == "台股":
+            quick_symbols = {k: v for k, v in FULL_SYMBOLS_MAP.items() if k.endswith(".TW")}
+        elif asset_class == "加密貨幣":
+            quick_symbols = {k: v for k, v in FULL_SYMBOLS_MAP.items() if k.endswith("-USD")}
+        else:
+            quick_symbols = FULL_SYMBOLS_MAP
+        
+        quick_select_options = [""] + [f"{s} ({d['name']})" for s, d in quick_symbols.items()]
+        
+        # 2. 快速選擇標的
+        selected_quick_option = st.selectbox("快速選擇標的", quick_select_options)
+        
+        # 3. 直接輸入代碼
+        # 使用 Session State 保持輸入框的值
+        sidebar_search_input = st.text_input(
+            "或 3. 直接輸入代碼 (e.g., TSLA, 2330.TW)", 
+            value=st.session_state['sidebar_search_input']
+        )
+        st.session_state['sidebar_search_input'] = sidebar_search_input # 確保 Session State 更新
+
+        # 確定最終要分析的代碼
+        final_symbol_to_analyze = st.session_state['last_search_symbol']
+        
+        if selected_quick_option:
+            # 從下拉選單中提取代碼
+            symbol_match = re.search(r"^(\w[\w.-]+)", selected_quick_option)
+            if symbol_match:
+                final_symbol_to_analyze = symbol_match.group(1).strip()
+        
+        if sidebar_search_input:
+            # 使用手動輸入的代碼
+            final_symbol_to_analyze = sidebar_search_input.strip().upper()
+        
+        # 更新 Session State 中的最終代碼
+        st.session_state['last_search_symbol'] = final_symbol_to_analyze
+        
+        st.markdown("---")
+
+        # 4. 選擇分析週期
+        selected_period_key = st.selectbox(
+            "選擇分析週期", 
+            list(PERIOD_MAP.keys()),
+            index=2 # 默認為 1 日 (中長線)
+        )
+        period_yf, interval_yf = PERIOD_MAP[selected_period_key]
+
+        st.markdown("---")
+        
+        # 執行分析按鈕
+        analyze_button_clicked = st.button('📊 執行AI分析')
+
+    # --- 主頁面內容 ---
+    
+    # 點擊按鈕或 Session State 中有數據時執行分析流程
+    if analyze_button_clicked or st.session_state.get('data_ready', False):
+        
+        if analyze_button_clicked:
+            st.session_state['data_ready'] = False # 重置狀態
+
+        if not final_symbol_to_analyze:
+            st.warning("⚠️ 請在左側輸入或選擇一個標的代碼，然後點擊 **『執行AI分析』**。")
+            return
+
+        # 顯示載入中的動畫
+        with st.spinner(f"正在擷取 **{final_symbol_to_analyze}** 的 {selected_period_key} 數據並進行 AI 計算..."):
+            # 獲取數據
+            df_data = get_stock_data(final_symbol_to_analyze, period_yf, interval_yf)
+
+            if df_data is None or df_data.empty:
+                st.error(f"❌ 無法獲取代碼 **{final_symbol_to_analyze}** 的數據。請檢查代碼是否正確或稍後重試。")
+                st.session_state['data_ready'] = False
+                return
+
+            # 計算指標
+            df_data = calculate_technical_indicators(df_data)
+
+            if df_data is None or df_data.empty:
+                st.error("❌ 數據處理失敗，無法計算技術指標。")
+                st.session_state['data_ready'] = False
+                return
+
+            # 儲存數據到 Session State
+            st.session_state['df'] = df_data
+            st.session_state['data_ready'] = True
+            st.session_state['symbol'] = final_symbol_to_analyze
+            st.session_state['period_key'] = selected_period_key
             
-            document.getElementById('latest-price').textContent = `$${MOCK_DATA.latestPrice.toFixed(2)}`;
-            document.getElementById('entry-price').textContent = `$${MOCK_DATA.entryPrice.toFixed(2)}`;
-            document.getElementById('tp-price').textContent = `$${MOCK_DATA.tp.toFixed(2)}`;
-            document.getElementById('sl-price').textContent = `$${MOCK_DATA.sl.toFixed(2)}`;
+            # 給用戶一個成功的反饋
+            st.success(f"✅ **{final_symbol_to_analyze}** 的 {selected_period_key} 分析數據已就緒！")
 
-            document.querySelector('#slide-0 header h2').textContent = MOCK_DATA.name;
-            document.querySelector('#slide-0 header span').textContent = `$${MOCK_DATA.symbol}`;
-            document.querySelector('#slide-0 header p').textContent = `AI 趨勢分析 | ${MOCK_DATA.period}`;
+    # 數據準備好後才顯示結果
+    if st.session_state.get('data_ready', False) and st.session_state.get('symbol') == final_symbol_to_analyze and st.session_state.get('period_key') == selected_period_key:
+        
+        df = st.session_state['df']
+        
+        # 生成指標總結
+        summary_df, bull_count, bear_count, overall_risk_level = generate_technical_summary(df)
+        
+        # 生成 AI 報告
+        ai_report = generate_ai_analysis_text(
+            final_symbol_to_analyze, 
+            df, 
+            summary_df, 
+            bull_count, 
+            bear_count, 
+            overall_risk_level, 
+            selected_period_key
+        )
+        
+        # --- 渲染分析結果 ---
 
-            // --- Page 2 Initialization (指標列表) ---
-            const indicatorList = document.getElementById('indicator-list');
-            indicatorList.innerHTML = MOCK_DATA.indicators.map(item => {
-                let valColor = 'text-gray-400';
-                if (item.signal.includes('buy') || item.signal === 'strong_buy') {
-                    valColor = 'text-green-400'; // 模擬 Streamlit 紅色=強化信號
-                } else if (item.signal.includes('warning') || item.signal === 'sell') {
-                    valColor = 'text-red-400'; // 模擬 Streamlit 綠色=削弱信號
+        # 1. AI 報告
+        st.markdown(ai_report)
+        st.markdown("---")
+
+        # 2. 關鍵技術指標表格
+        st.subheader("📋 關鍵技術指標一覽")
+        
+        if summary_df is not None and not summary_df.empty:
+            # 輔助函式：根據風險等級設置顏色
+            def style_risk_level(s):
+                color_map = {
+                    4: 'background-color: #FFECEC; color: #FF4B4B; font-weight: bold;', # 強多 (紅色)
+                    3: 'background-color: #FFF3E0; color: #FFA500;',                  # 弱多 (橙色)
+                    2: 'background-color: #E6FFF6; color: #00CC96; font-weight: bold;', # 強空 (綠色)
+                    1: 'background-color: #F0FFF0; color: #3CB371;',                  # 弱空 (淺綠)
+                    0: 'background-color: #F5F5F5; color: #696969;'                   # 中性 (灰色)
                 }
-                
-                return `
-                    <div class="flex justify-between py-1 border-b border-gray-800">
-                        <span class="text-xs text-gray-500">${item.indicator}</span>
-                        <span class="text-xs ${valColor} font-bold">${item.latestValue}</span>
-                        <span class="text-xs ${valColor}">${item.conclusion}</span>
-                    </div>
-                `;
-            }).join('');
-            
-            // 更新 Page 2 的引導文案
-            const mainSignal = MOCK_DATA.indicators.find(i => i.signal === 'strong_buy' || i.signal === 'buy');
-            if (mainSignal) {
-                document.querySelector('#slide-1 header p').textContent = `AI 判讀背後的數據支撐：${mainSignal.indicator} ${mainSignal.conclusion}，信號強勁。`;
-            }
-            
-            document.getElementById('app-screenshot').src = MOCK_DATA.appScreenshotUrl;
+                # 僅對 "分析結論" 列應用顏色
+                return [color_map.get(level, 'background-color: white;') for level in summary_df['風險等級']]
 
-            // --- Page 3 Initialization ---
-            document.querySelector('#slide-2 main p.text-xl').textContent = `$${MOCK_DATA.symbol} | 專屬 AI 策略`;
-            document.querySelector('#slide-2 main div.bg-alert-orange p').textContent = `點擊主頁連結 [${MOCK_DATA.appLink}]`;
-        }
-
-        /**
-         * 切換顯示的頁面
-         * @param {number} index - 0, 1, or 2
-         */
-        function showSlide(index) {
-            slides.forEach((slide, i) => {
-                slide.classList.remove('active');
-                if (i === index) {
-                    slide.classList.add('active');
+            
+            # 移除 '風險等級' 列，只用於樣式控制
+            display_df = summary_df.drop(columns=['風險等級'])
+            
+            # 應用樣式並顯示表格
+            st.dataframe(
+                display_df.style.apply(style_risk_level, subset=['分析結論'], axis=1),
+                hide_index=True,
+                use_container_width=True,
+                column_config={
+                    "最新值": st.column_config.Column("最新數值", help="技術指標的最新計算值"),
+                    "分析結論": st.column_config.Column("趨勢/動能判讀", help="基於數值範圍的專業解讀"),
                 }
-            });
-            
-            document.querySelectorAll('#carousel-container button').forEach((btn, i) => {
-                btn.classList.remove('bg-trend-blue', 'text-black', 'bg-gray-700');
-                if (i === index) {
-                    btn.classList.add('bg-trend-blue', 'text-black');
-                } else {
-                    btn.classList.add('bg-gray-700');
-                }
-            });
-            currentSlide = index;
-        }
+            )
+            st.caption("ℹ️ **設計師提示:** 表格顏色會根據指標的趨勢/風險等級自動變化（**紅色=多頭/強化信號**（類似低風險買入），**綠色=空頭/削弱信號**（類似高風險賣出），**橙色=中性/警告**）。")
 
-        // 頁面載入時初始化內容並顯示第一頁
-        window.onload = () => {
-            initializeContent();
-            showSlide(0);
-        };
-    </script>
-</body>
-</html>
+        else:
+            st.info("無足夠數據生成關鍵技術指標表格。")
+        
+        st.markdown("---")
+        
+        # 3. 完整圖表
+        st.subheader(f"📊 完整技術分析圖表")
+        chart = create_comprehensive_chart(df, final_symbol_to_analyze, selected_period_key) 
+        
+        st.plotly_chart(chart, use_container_width=True, key=f"plotly_chart_{final_symbol_to_analyze}_{selected_period_key}")
+
+    # 應用程式啟動或未執行分析時的初始提示
+    else:
+          st.info(f"請在左側選擇或輸入標的（例如：**2330.TW**、**NVDA**、**BTC-USD**），然後點擊 <span style='color: #FA8072; font-weight: bold;'>『📊 執行AI分析』</span> 按鈕開始。", unsafe_allow_html=True)
+          
+          st.markdown("---")
+          
+          st.subheader("📝 使用步驟：")
+          st.markdown("1. **選擇資產類別**：在左側欄選擇 `美股`、`台股` 或 `加密貨幣`。")
+          st.markdown("2. **選擇標的**：使用下拉選單快速選擇熱門標的，或直接在輸入框中鍵入代碼或名稱。")
+          st.markdown("3. **選擇週期**：決定分析的長度（例如：`30 分`、`4 小時`、`1 日`、`1 周`）。")
+          st.markdown(f"4. **執行分析**：點擊 <span style='color: #FA8072; font-weight: bold;'>『📊 執行AI分析』</span>，AI將融合基本面與技術面指標提供交易策略。", unsafe_allow_html=True)
+          
+          st.markdown("---")
+
+
+if __name__ == '__main__':
+    # Streamlit Session State 初始化，確保變數存在且為預期類型
+    if 'last_search_symbol' not in st.session_state:
+        st.session_state['last_search_symbol'] = "2330.TW"
+    if 'data_ready' not in st.session_state:
+        st.session_state['data_ready'] = False
+    if 'sidebar_search_input' not in st.session_state:
+        st.session_state['sidebar_search_input'] = ""
+        
+    main()
