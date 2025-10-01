@@ -16,7 +16,6 @@ warnings.filterwarnings('ignore')
 # 1. 頁面配置與全局設定
 # ==============================================================================
 
-# 修正頁面標題，使用更一致的寫法
 st.set_page_config(
     page_title="🤖 AI趨勢分析儀表板 📈", 
     page_icon="📈", 
@@ -70,18 +69,22 @@ ASSET_CLASSES = {
 @st.cache_data(ttl=3600) # 數據快取一小時
 def load_data(symbol, period, interval):
     """從 yfinance 下載歷史數據。"""
-    # 為了避免在數據下載期間觸發錯誤，使用 st.markdown 替代 st.info
+    # 使用 st.markdown 替代 st.info 避免渲染衝突
     st.markdown(f"🤖 正在從 Yahoo Finance 下載 **{symbol}** 的 {period} 數據 (週期: {interval})... 請稍候 ⏳")
     
     try:
+        # 使用 auto_adjust=True 讓 yfinance 自動處理分割和股利調整
         df = yf.download(symbol, period=period, interval=interval, progress=False, auto_adjust=True)
         
         if df.empty:
             st.error(f"⚠️ 無法獲取 **{symbol}** 在 {interval} 週期下的數據。請檢查代碼或更換週期。")
             return None
         
-        df.columns = [col.capitalize() for col in df.columns]
+        # **關鍵修正：修復 'tuple' object has no attribute 'capitalize' 錯誤**
+        # 即使欄位是 MultiIndex 或 Tuple，先安全地轉成 string 再 capitalize
+        df.columns = [str(col).capitalize() for col in df.columns]
         
+        # 對於高頻數據（例如 30m, 60m），移除不必要的 'Volume' 0 值行
         if 'm' in interval or 'h' in interval:
             df = df[df['Volume'] > 0]
 
@@ -89,6 +92,7 @@ def load_data(symbol, period, interval):
         return df
     
     except Exception as e:
+        # 顯示更友好的錯誤信息
         st.error(f"❌ 下載數據時發生錯誤：{e}。請檢查網路連線或標的代碼。")
         return None
 
@@ -515,7 +519,6 @@ def main():
     # 應用程式啟動或未點擊按鈕時的提示訊息 (已修正)
     elif not st.session_state.get('data_ready', False) and not analyze_button_clicked:
           
-          # **關鍵修正**：用 st.markdown 替代 st.info，並使用 div 包裹來模擬 alert 效果，避開 TypeError
           st.markdown("""
               <div style='
                   padding: 10px; 
@@ -533,7 +536,6 @@ def main():
           st.markdown("1. **選擇資產類別**：在左側欄選擇 `美股`、`台股` 或 `加密貨幣`。")
           st.markdown("2. **選擇標的**：使用下拉選單快速選擇熱門標的，或直接在輸入框中鍵入代碼或名稱。")
           st.markdown("3. **選擇週期**：決定分析的長度（例如：`30 分 (短期)`、`4 小時 (波段)`、`1 日 (中長線)`）。")
-          # **關鍵修正**：修正 Markdown 語法錯誤 (移除 『📊 執行AI分析』後的冗餘 **)
           st.markdown("4. **執行分析**：點擊 <span style='color: #FA8072; font-weight: bold;'>『📊 執行AI分析』</span>，AI將融合技術指標提供交易策略。", unsafe_allow_html=True)
           
           st.markdown("---")
