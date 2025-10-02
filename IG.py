@@ -69,7 +69,6 @@ ASSET_CLASSES = {
 @st.cache_data(ttl=3600) # 數據快取一小時
 def load_data(symbol, period, interval):
     """從 yfinance 下載歷史數據。"""
-    # 使用 st.markdown 替代 st.info 避免渲染衝突
     st.markdown(f"🤖 正在從 Yahoo Finance 下載 **{symbol}** 的 {period} 數據 (週期: {interval})... 請稍候 ⏳")
     
     try:
@@ -80,18 +79,61 @@ def load_data(symbol, period, interval):
             st.error(f"⚠️ 無法獲取 **{symbol}** 在 {interval} 週期下的數據。請檢查代碼或更換週期。")
             return None
         
-        # 即使欄位是 MultiIndex 或 Tuple，先安全地轉成 string 再 capitalize
-        df.columns = [str(col).capitalize() for col in df.columns]
+        # **最極致的修正 (V3)：強制統一欄位名稱並重建 DataFrame**
+        df.columns = [str(col).strip() for col in df.columns]
         
-        # **關鍵修正：增加 Volume 欄位檢查**
-        # 僅在是高頻數據且 Volume 欄位存在時，才移除 Volume 0 值行
-        if ('m' in interval or 'h' in interval) and 'Volume' in df.columns:
-            df = df[df['Volume'] > 0]
-        elif 'Volume' not in df.columns:
-            st.warning("ℹ️ 數據中缺少 **成交量 (Volume)** 欄位，這可能會影響部分指標的計算。")
+        # 1. 定義標準欄位名稱列表
+        STANDARD_COLUMNS = ['Open', 'High', 'Low', 'Close', 'Volume']
+        
+        # 2. 建立一個包含所有標準欄位的字典，用於儲存對應的 Series 數據
+        standardized_data = {col: None for col in STANDARD_COLUMNS}
+        
+        # 3. 遍歷原始數據欄位，進行最寬鬆的匹配和分配 (確保 'Adj Close' 優先被視為 'Close')
+        for col in df.columns:
+            lower_col = col.lower()
+            
+            # Close/Adj Close 處理
+            if 'adj close' in lower_col or ('close' in lower_col and standardized_data['Close'] is None):
+                standardized_data['Close'] = df[col]
+            # 其他 OHLCV 處理
+            elif 'open' in lower_col and standardized_data['Open'] is None:
+                standardized_data['Open'] = df[col]
+            elif 'high' in lower_col and standardized_data['High'] is None:
+                standardized_data['High'] = df[col]
+            elif 'low' in lower_col and standardized_data['Low'] is None:
+                standardized_data['Low'] = df[col]
+            elif 'volume' in lower_col and standardized_data['Volume'] is None:
+                standardized_data['Volume'] = df[col]
 
-        st.success(f"✅ **{symbol}** 數據下載完成。共 {len(df)} 條紀錄。")
-        return df
+        # 4. 重新組裝 DataFrame，只包含標準欄位
+        new_df = pd.DataFrame(index=df.index)
+        
+        required_missing = []
+        for col_name in ['Open', 'High', 'Low', 'Close']:
+            if standardized_data[col_name] is not None:
+                new_df[col_name] = standardized_data[col_name]
+            else:
+                required_missing.append(col_name)
+
+        # 5. 處理 Volume (非必需)
+        if standardized_data['Volume'] is not None:
+             new_df['Volume'] = standardized_data['Volume']
+        
+        # 6. 檢查必要的 OHLC 欄位是否存在
+        if required_missing:
+             st.error(f"❌ 數據中缺少關鍵的 OHLC 欄位: **{', '.join(required_missing)}**，分析無法進行。偵測到的欄位為: {list(df.columns)}")
+             return None
+
+        # 7. 處理 Volume 欄位警告和清洗
+        if 'Volume' not in new_df.columns:
+            st.warning("ℹ️ 數據中缺少 **成交量 (Volume)** 欄位，這可能會影響部分指標的計算。")
+        elif ('m' in interval or 'h' in interval):
+            # 僅在高頻數據且 Volume 存在時，才移除 Volume 0 值行
+            new_df = new_df[new_df['Volume'] > 0]
+
+
+        st.success(f"✅ **{symbol}** 數據下載完成。共 {len(new_df)} 條紀錄。")
+        return new_df
     
     except Exception as e:
         # 顯示更友好的錯誤信息
@@ -102,6 +144,11 @@ def add_technical_indicators(df):
     """計算所有關鍵技術指標。"""
     if df.empty:
         return df
+
+    # 確保所有指標所需欄位都存在 (Open, High, Low, Close)
+    required_cols = ['Close', 'Open', 'High', 'Low']
+    if not all(col in df.columns for col in required_cols):
+        return pd.DataFrame() 
 
     # --- 1. 趨勢指標 (Trend Indicators) ---
     df['SMA_50'] = ta.trend.sma_indicator(df['Close'], window=50)
@@ -135,7 +182,7 @@ def add_technical_indicators(df):
     if 'Volume' in df.columns:
         df['OBV'] = ta.volume.on_balance_volume(df['Close'], df['Volume'])
     else:
-        # 即使沒有 OBV 也不影響後續指標計算，僅需給予一個空欄位或跳過
+        # 即使沒有 OBV 也不影響後續指標計算
         pass
 
     # 移除計算指標所需的NaN值，但保留至少150根K線用於顯示
@@ -299,34 +346,39 @@ def create_comprehensive_chart(df, symbol, period_key):
     ), row=1, col=1)
 
     # 繪製均線
-    fig.add_trace(go.Scatter(x=df.index, y=df['SMA_50'], line=dict(color='#FFD700', width=1.5), name='SMA 50'), row=1, col=1)
-    fig.add_trace(go.Scatter(x=df.index, y=df['SMA_200'], line=dict(color='#1E90FF', width=2), name='SMA 200'), row=1, col=1)
+    if 'SMA_50' in df.columns:
+        fig.add_trace(go.Scatter(x=df.index, y=df['SMA_50'], line=dict(color='#FFD700', width=1.5), name='SMA 50'), row=1, col=1)
+    if 'SMA_200' in df.columns:
+        fig.add_trace(go.Scatter(x=df.index, y=df['SMA_200'], line=dict(color='#1E90FF', width=2), name='SMA 200'), row=1, col=1)
     
     # 繪製布林帶
-    fig.add_trace(go.Scatter(x=df.index, y=df['BB_High'], line=dict(color='rgba(128, 128, 128, 0.5)', width=1), name='BB Upper', showlegend=False), row=1, col=1)
-    fig.add_trace(go.Scatter(x=df.index, y=df['BB_Low'], line=dict(color='rgba(128, 128, 128, 0.5)', width=1), name='BB Lower', showlegend=False), row=1, col=1)
+    if 'BB_High' in df.columns:
+        fig.add_trace(go.Scatter(x=df.index, y=df['BB_High'], line=dict(color='rgba(128, 128, 128, 0.5)', width=1), name='BB Upper', showlegend=False), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['BB_Low'], line=dict(color='rgba(128, 128, 128, 0.5)', width=1), name='BB Lower', showlegend=False), row=1, col=1)
 
 
     # --- Subplot 2: MACD ---
-    colors = ['#00B336' if val >= 0 else '#FF4B4B' for val in df['MACD_Hist']]
-    
-    fig.add_trace(go.Bar(x=df.index, y=df['MACD_Hist'], name='MACD Hist', marker_color=colors), row=2, col=1)
-    fig.add_trace(go.Scatter(x=df.index, y=df['MACD_Line'], line=dict(color='#FF4B4B', width=1.5), name='MACD Line'), row=2, col=1)
-    fig.add_trace(go.Scatter(x=df.index, y=df['MACD_Signal'], line=dict(color='#FFD700', width=1.5, dash='dash'), name='Signal Line'), row=2, col=1)
-    fig.update_yaxes(title_text='MACD', row=2, col=1)
+    if 'MACD_Hist' in df.columns:
+        colors = ['#00B336' if val >= 0 else '#FF4B4B' for val in df['MACD_Hist']]
+        fig.add_trace(go.Bar(x=df.index, y=df['MACD_Hist'], name='MACD Hist', marker_color=colors), row=2, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['MACD_Line'], line=dict(color='#FF4B4B', width=1.5), name='MACD Line'), row=2, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['MACD_Signal'], line=dict(color='#FFD700', width=1.5, dash='dash'), name='Signal Line'), row=2, col=1)
+        fig.update_yaxes(title_text='MACD', row=2, col=1)
     
     # --- Subplot 3: RSI ---
-    fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], line=dict(color='#1E90FF', width=1.5), name='RSI'), row=3, col=1)
-    fig.add_hline(y=70, line_dash="dash", line_color="#FF4B4B", row=3, col=1) # 超買
-    fig.add_hline(y=30, line_dash="dash", line_color="#00B336", row=3, col=1) # 超賣
-    fig.update_yaxes(title_text='RSI', range=[0, 100], row=3, col=1)
+    if 'RSI' in df.columns:
+        fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], line=dict(color='#1E90FF', width=1.5), name='RSI'), row=3, col=1)
+        fig.add_hline(y=70, line_dash="dash", line_color="#FF4B4B", row=3, col=1) # 超買
+        fig.add_hline(y=30, line_dash="dash", line_color="#00B336", row=3, col=1) # 超賣
+        fig.update_yaxes(title_text='RSI', range=[0, 100], row=3, col=1)
 
     # --- Subplot 4: ADX and Directional Indicators ---
-    fig.add_trace(go.Scatter(x=df.index, y=df['ADX'], line=dict(color='rgba(255, 255, 255, 0.8)', width=1.5), name='ADX', fill='tozeroy', fillcolor='rgba(100, 100, 100, 0.1)'), row=4, col=1)
-    fig.add_trace(go.Scatter(x=df.index, y=df['DI_Plus'], line=dict(color='#00B336', width=1.5), name='+DI'), row=4, col=1)
-    fig.add_trace(go.Scatter(x=df.index, y=df['DI_Minus'], line=dict(color='#FF4B4B', width=1.5), name='-DI'), row=4, col=1)
-    fig.add_hline(y=25, line_dash="dot", line_color="#FFD700", row=4, col=1) # 趨勢線
-    fig.update_yaxes(title_text='ADX', range=[0, 100], row=4, col=1)
+    if 'ADX' in df.columns:
+        fig.add_trace(go.Scatter(x=df.index, y=df['ADX'], line=dict(color='rgba(255, 255, 255, 0.8)', width=1.5), name='ADX', fill='tozeroy', fillcolor='rgba(100, 100, 100, 0.1)'), row=4, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['DI_Plus'], line=dict(color='#00B336', width=1.5), name='+DI'), row=4, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['DI_Minus'], line=dict(color='#FF4B4B', width=1.5), name='-DI'), row=4, col=1)
+        fig.add_hline(y=25, line_dash="dot", line_color="#FFD700", row=4, col=1) # 趨勢線
+        fig.update_yaxes(title_text='ADX', range=[0, 100], row=4, col=1)
     
     # --- 全局佈局設定 ---
     fig.update_layout(
