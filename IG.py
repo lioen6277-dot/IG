@@ -548,8 +548,9 @@ def main():
             # 定義表格顏色樣式
             def color_cells(row):
                 style = [''] * len(row)
-                color = row['顏色代碼']
+                color = row['顏色代碼'] # 此處需要 '顏色代碼' 欄位存在
                 
+                # 假設 '分析結論' 欄位索引是 2
                 if color == 'green':
                     style[2] = 'background-color: #D4EDDA; color: #155724; font-weight: bold;'
                 elif color == 'red':
@@ -559,14 +560,17 @@ def main():
                 
                 return style
 
+            # *** 修正點：使用 .style.apply 應用樣式，然後使用 .hide_columns 隱藏 '顏色代碼' ***
             st.dataframe(
-                results_df.drop(columns=['顏色代碼']).style.apply(color_cells, axis=1),
+                results_df.style.apply(color_cells, axis=1).hide_columns(subset=['顏色代碼']),
                 hide_index=True,
                 column_config={
                     "最新值": st.column_config.Column("最新數值", help="技術指標的最新計算值"),
                     "分析結論": st.column_config.Column("趨勢/動能判讀", help="基於數值範圍的專業解讀"),
                 }
             )
+            # ******************************************************************************
+            
             st.caption("ℹ️ **設計師提示:** 表格顏色會根據指標的趨勢/風險等級自動變化（**紅色=多頭/強化信號**（類似低風險買入），**綠色=空頭/削弱信號**（類似高風險賣出），**橙色=中性/警告**）。")
 
         else:
