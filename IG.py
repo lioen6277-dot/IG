@@ -61,7 +61,7 @@ h2, h3, h4 {{
 
 /* -------------------- 文字與指標卡片樣式 (核心優化部分) -------------------- */
 
-/* Data Editor 表頭背景色 */
+/* Data Editor 表頭背景色 (Settings 區塊視覺一致性) */
 .st-emotion-cache-1c19gh9 {{
     background-color: {ACCENT_COLOR} !important;
     color: white !important;
@@ -83,29 +83,38 @@ h2, h3, h4 {{
     border-left: 3px solid {PRIMARY_COLOR}; 
 }}
 
+/* Detail Card - for the breakdown section, using a light border */
+.metric-card-detail {{
+    background: rgba(255, 255, 255, 0.03); 
+    border-left: 1px solid rgba(255, 255, 255, 0.1); 
+    padding: 0.8rem;
+    margin-bottom: 0.3rem;
+}}
+
 /* Label text - used everywhere */
 .label-text {{
     font-size: 0.9em;
     color: {LABEL_COLOR};
     font-weight: 500;
-    margin-bottom: 0.3rem;
+    margin-bottom: 0.2rem;
+    line-height: 1.2;
 }}
 
-/* Value text - Main Budget style (used by col1/col2 budget metrics) */
+/* Value text - Main Budget style */
 .value-text-main {{
     color: {TEXT_COLOR};
     font-size: 1.5em; 
     font-weight: bold;
 }}
 
-/* Value text - Regular style for Cost, Budget, Price (used in ticker cards) */
+/* Value text - Regular style for Cost, Budget, Price */
 .value-text-regular {{
     color: {TEXT_COLOR};
-    font-size: 1.3em; 
+    font-size: 1.2em; /* 略微縮小以適應緊湊佈局 */
     font-weight: bold;
 }}
 
-/* Value text - Highlighted style for Shares (used in ticker cards - 最大化強調) */
+/* Value text - Highlighted style for Shares (最大化強調) */
 .value-text-highlight {{
     color: {ACCENT_COLOR}; 
     font-size: 1.8em; 
@@ -120,7 +129,7 @@ h2, h3, h4 {{
     padding: 0.5rem 0;
     margin-top: 1rem;
     margin-bottom: 0.2rem;
-    border-bottom: 1px dashed rgba(240, 128, 128, 0.5); /* 輕微分隔 */
+    border-bottom: 1px dashed rgba(240, 128, 128, 0.5); 
 }}
 
 /* -------------------- 其他微調 -------------------- */
@@ -279,7 +288,7 @@ def render_budget_metrics(total_budget, total_spent):
         """, unsafe_allow_html=True)
 
 def render_ticker_results(results_list):
-    """渲染每檔股票的投資建議 (使用統一的指標卡片樣式)"""
+    """渲染每檔股票的關鍵投資建議 (4個關鍵指標卡片)"""
     
     for item in results_list:
         # 標題獨立顯示
@@ -319,6 +328,61 @@ def render_ticker_results(results_list):
             <div class='value-text-regular'>TWD {item['價格']:,.2f}</div>
         </div>
         """, unsafe_allow_html=True)
+
+def render_detailed_breakdown_cards(results_list):
+    """
+    渲染詳細投資明細，使用 3 欄指標卡片佈局取代 st.dataframe。
+    只顯示明細中獨有的欄位：分配金額、預估手續費、總成本。
+    """
+    
+    for item in results_list:
+        # 標題：股票代號與分配比例
+        st.markdown(f"<div class='ticker-group-header' style='margin-top: 1.5rem;'>📌 {item['標的代號']} 詳細明細 ({item['比例']})</div>", unsafe_allow_html=True)
+        
+        # 使用 3 欄佈局顯示所有詳細數據
+        col_s1, col_s2, col_s3, col_s4, col_s5 = st.columns(5) 
+        
+        # 1. 建議股數 (高亮且在詳細中再次顯示)
+        col_s1.markdown(f"""
+        <div class='metric-card metric-card-detail'>
+            <div class='label-text'>建議股數</div>
+            <div class='value-text-highlight' style='font-size: 1.5em;'>{item['建議股數']}</div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # 2. 總成本
+        col_s2.markdown(f"""
+        <div class='metric-card metric-card-detail'>
+            <div class='label-text'>總成本</div>
+            <div class='value-text-regular'>TWD {item['總成本']:,.0f}</div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # 3. 分配金額
+        col_s3.markdown(f"""
+        <div class='metric-card metric-card-detail'>
+            <div class='label-text'>分配預算</div>
+            <div class='value-text-regular'>TWD {item['分配金額']:,.0f}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # 4. 預估手續費
+        col_s4.markdown(f"""
+        <div class='metric-card metric-card-detail'>
+            <div class='label-text'>預估手續費</div>
+            <div class='value-text-regular'>TWD {item['預估手續費']:,.0f}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # 5. 當前價格
+        col_s5.markdown(f"""
+        <div class='metric-card metric-card-detail'>
+            <div class='label-text'>當前價格</div>
+            <div class='value-text-regular'>TWD {item['價格']:,.2f}</div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("---") # 用於分隔每檔股票的詳細明細
 
 
 # ========== 頁面主體邏輯 ==========
@@ -365,6 +429,7 @@ st.divider()
 st.subheader("⚙️ 價格與比例設定")
 st.caption("💬 報價為自動獲取，您可手動點擊 **當前價格** 欄位進行情境測試。其他欄位已鎖定。建議比例總和必須為 1.0 (100%)。")
 
+# 保持 st.data_editor 進行輸入，確保功能性最佳
 edited_df = st.data_editor(
     input_df,
     hide_index=True,
@@ -390,7 +455,6 @@ if abs(weight_sum - 1.0) > 0.01:
 
 # ========== 計算（基於編輯後的數據）==========
 results_list, total_spent = calculate_investment(edited_df, total_budget, fee_rate)
-results_df = pd.DataFrame(results_list)
 
 # ========== 顯示結果區域 ==========
 
@@ -403,21 +467,8 @@ st.header("✨ 建議買入股數概覽")
 render_ticker_results(results_list)
 
 st.divider()
-st.subheader("📊 詳細投資明細表")
-st.dataframe(
-    results_df,
-    hide_index=True,
-    use_container_width=True,
-    column_config={
-        "標的代號": st.column_config.TextColumn("標的代號", width=100),
-        "比例": st.column_config.TextColumn("比例", width=80),
-        "價格": st.column_config.NumberColumn("價格", format="TWD %.2f", width=100),
-        "分配金額": st.column_config.NumberColumn("分配金額", format="TWD %.0f", width=120),
-        "建議股數": st.column_config.NumberColumn("建議股數", width=80),
-        "預估手續費": st.column_config.NumberColumn("預估手續費", format="TWD %.0f", width=100),
-        "總成本": st.column_config.NumberColumn("總成本", format="TWD %.0f", width=100),
-    }
-)
+st.header("📋 詳細投資明細 (卡片化)")
+render_detailed_breakdown_cards(results_list) # 使用新的卡片化函式
 
 st.divider()
 st.caption("📌 計算邏輯：優先確保買入股數最大化，且總花費不超過分配預算；手續費最低 1 元計算。")
