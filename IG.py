@@ -491,9 +491,6 @@ if not check_allocation_sum(ALLOCATION_WEIGHTS):
 else:
     safe_weights = ALLOCATION_WEIGHTS
 
-# --- 應用程式主體：單一總卡片開始 ---
-st.markdown("<div class='base-card'>", unsafe_allow_html=True)
-
 # 1. 報價資訊
 st.info(f"🌐 數據同步時間：{fetch_time.strftime('%Y-%m-%d %H:%M:%S')} (戰術報價資料每 60 秒自動更新一次)")
 
