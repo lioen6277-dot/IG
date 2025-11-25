@@ -4,30 +4,50 @@ import yfinance as yf
 from datetime import datetime
 import time
 
-# --- 0. CSS 注入：放大字體 ---
-# 使用 HTML 注入客製化 CSS，達成全域字體放大
-st.markdown("""
+# --- 0. CSS 注入：字體放大與配色方案 ---
+PRIMARY_COLOR = "#f08080"  # 珊瑚紅/淡紅
+ACCENT_COLOR = "#e9967a"   # 淺鮭色/深橙色
+
+st.markdown(f"""
 <style>
-/* 放大所有主要內容的基礎字體 */
-.stApp {
+/* -------------------- 全域字體與排版優化 -------------------- */
+.stApp {{
     font-size: 1.2rem;
-}
-/* 放大標題和副標題，讓層次更分明 */
-h1, h2, h3 {
+}}
+h1, h2, h3 {{
     font-size: 1.5em !important;
-}
-/* 放大 Metric (關鍵數字) 的值，使其更醒目 */
-div[data-testid="stMetricValue"] {
+}}
+
+/* -------------------- 配色方案應用 -------------------- */
+
+/* 標題顏色使用主色 */
+h1, h2, h3 {{
+    color: {PRIMARY_COLOR} !important;
+}}
+
+/* Metric (關鍵數字) 的值使用強調色 */
+div[data-testid="stMetricValue"] {{
+    color: {ACCENT_COLOR} !important;
     font-size: 1.8rem !important;
-}
-/* 調整表格內文字大小 */
-div[data-testid="stDataFrame"] {
+}}
+
+/* 側邊欄標題顏色 */
+.st-emotion-cache-1dpn6dr {{ /* Targeting specific sidebar headers */
+    color: {PRIMARY_COLOR} !important;
+}}
+
+/* 模擬表格標題的配色 (應用在 data_editor 的 header) */
+/* 這是 Streamlit 內部較難直接命中的元素，使用最接近的選擇器來設定背景 */
+.st-emotion-cache-1c19gh9 {{ 
+    background-color: {ACCENT_COLOR} !important;
+    color: white !important; /* 確保文字可讀 */
+}}
+
+/* 調整表格內的文字大小 */
+div[data-testid="stDataFrame"] {{
     font-size: 1.1rem;
-}
-/* 調整側邊欄文字大小 */
-.st-emotion-cache-1cypcdb {
-    font-size: 1.1rem;
-}
+}}
+
 </style>
 """, unsafe_allow_html=True)
 
