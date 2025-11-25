@@ -309,7 +309,6 @@ def calculate_investment(edited_df, total_budget, fee_rate, min_fee):
     return results_list, round(total_spent, 2)
 
 def render_budget_metrics(total_budget, total_spent):
-    global RESOURCE_READINESS_HEADER, TOTAL_CAPITAL_LABEL, ESTIMATED_COST_LABEL, REMAINING_FUNDS_LABEL, ACCENT_COLOR, MAIN_COLOR
     
     st.markdown(f"<div class='card-section-header'>{RESOURCE_READINESS_HEADER}</div>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns(3)
@@ -346,7 +345,6 @@ def render_budget_metrics(total_budget, total_spent):
         """, unsafe_allow_html=True)
 
 def render_ticker_results_and_breakdown(results_list):
-    global DEPLOYMENT_HEADER, RECOMMENDED_UNITS_LABEL, TOTAL_DEPLOYMENT_COST_LABEL, TARGET_FUND_ALLOCATION_LABEL, UNIT_COST_LABEL, LOGISTICS_FEE_LABEL, DEPLOYMENT_TARGET_LABEL
     
     st.markdown(f"<div class='card-section-header'>{DEPLOYMENT_HEADER}</div>", unsafe_allow_html=True)
 
@@ -378,7 +376,6 @@ def render_ticker_results_and_breakdown(results_list):
 
 
 def render_ticker_settings(ticker_map, allocation_weights, prices_ready=True):
-    global CALIBRATION_HEADER, DATA_FETCH_WARNING, TARGET_DESIGNATION_LABEL, STRATEGIC_RATIO_LABEL, DEFAULT_UNIT_COST_LABEL, MAIN_COLOR
     
     st.markdown(f"<div class='card-section-header'>{CALIBRATION_HEADER}</div>", unsafe_allow_html=True)
 
