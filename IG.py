@@ -4,16 +4,42 @@ import yfinance as yf
 from datetime import datetime
 import time
 
+# --- 0. CSS 注入：放大字體 ---
+# 使用 HTML 注入客製化 CSS，達成全域字體放大
+st.markdown("""
+<style>
+/* 放大所有主要內容的基礎字體 */
+.stApp {
+    font-size: 1.2rem;
+}
+/* 放大標題和副標題，讓層次更分明 */
+h1, h2, h3 {
+    font-size: 1.5em !important;
+}
+/* 放大 Metric (關鍵數字) 的值，使其更醒目 */
+div[data-testid="stMetricValue"] {
+    font-size: 1.8rem !important;
+}
+/* 調整表格內文字大小 */
+div[data-testid="stDataFrame"] {
+    font-size: 1.1rem;
+}
+/* 調整側邊欄文字大小 */
+.st-emotion-cache-1cypcdb {
+    font-size: 1.1rem;
+}
+</style>
+""", unsafe_allow_html=True)
+
+
 # --- 1. 固定參數與配置 ---
 
-# 設定頁面標題和佈局
 st.set_page_config(
     page_title="零股投資計算機 (即時報價)",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# 台灣股市代碼對應 Yahoo Finance Ticker
 TICKER_MAP = {
     "009813": "009813.TW",
     "0050": "0050.TW",
@@ -37,17 +63,14 @@ def get_current_prices(ticker_map):
     fetch_time = datetime.now()
     
     tickers = list(ticker_map.values())
-    # 設置較短的超時時間
     data = yf.download(tickers, period="1d", interval="1m", progress=False, timeout=5) 
 
     for code, ticker in ticker_map.items():
         try:
             if not data.empty and ticker in data['Close']:
-                # 取得最新收盤價
                 price = data['Close'][ticker].iloc[-1]
                 prices[code] = round(price, 2)
             else:
-                st.warning(f"⚠️ 無法獲取 {code} ({ticker}) 最新價格，將使用 0。")
                 prices[code] = 0.0
         except Exception:
             prices[code] = 0.0
@@ -60,7 +83,6 @@ def get_current_prices(ticker_map):
 st.title("📈 Streamlit 零股投資分配計算機 (即時報價)")
 st.markdown("---")
 
-# 獲取價格
 with st.spinner('正在從 Yahoo Finance 獲取最新報價...'):
     current_prices, fetch_time = get_current_prices(TICKER_MAP)
 
@@ -74,7 +96,7 @@ st.sidebar.header("🎯 投資參數設定")
 total_budget = st.sidebar.number_input(
     "每月投資總預算 (TWD)",
     min_value=1000,
-    value=20000,
+    value=3000,
     step=1000,
     format="%d"
 )
@@ -92,7 +114,6 @@ st.sidebar.caption(f"手續費最低 {MIN_FEE} 元 / 筆")
 
 # --- 5. 數據準備與輸入區 (價格與比例輸入) ---
 
-# 建立用於顯示和調整的 DataFrame
 data_to_edit = {
     "標的代號": list(current_prices.keys()),
     "設定比例": [ALLOCATION_WEIGHTS[code] for code in current_prices.keys()],
@@ -116,7 +137,6 @@ edited_df = st.data_editor(
     num_rows="fixed"
 )
 
-# 檢查輸入比例總和
 if edited_df['設定比例'].sum() != 1.0:
     st.error(f"⚠️ 錯誤：設定比例總和必須為 100% (目前為 {edited_df['設定比例'].sum()*100:.0f}%)，請調整。")
     st.stop()
@@ -130,7 +150,7 @@ total_spent = 0.0
 for index, row in edited_df.iterrows():
     code = row["標的代號"]
     weight = row["設定比例"]
-    price = row["當前價格 (自動獲取)"] # 使用使用者可能調整過的新價格
+    price = row["當前價格 (自動獲取)"] 
 
     allocated_budget = total_budget * weight
 
@@ -158,7 +178,7 @@ for index, row in edited_df.iterrows():
 
 results_df = pd.DataFrame(results_list)
 
-# --- 7. 輸出區 (依照新的排版順序) ---
+# --- 7. 輸出區 ---
 
 # 輸出 1: 總投資預算 (Summary Metrics)
 st.divider()
@@ -177,8 +197,22 @@ with col3:
 
 st.divider()
 
-# 輸出 2: 建議投資分配與結果 (Detailed Table)
+# 輸出 2: 建議投資分配與結果 (Highlight & Detailed Table)
 st.subheader("✅ 建議投資分配與結果")
+
+st.header("✨ 建議買入股數概覽 (重點)")
+# 使用 st.metric 凸顯每個標的的股數
+for item in results_list:
+    st.markdown(f"**--- {item['標的代號']} ({item['比例']}) ---**")
+    cols = st.columns(4)
+    cols[0].metric(label="✅ 建議股數", value=item['建議股數'])
+    cols[1].metric(label="預估成本", value=f"TWD {item['總成本']:,.0f}")
+    cols[2].metric(label="分配預算", value=f"TWD {item['分配金額']:,.0f}")
+    cols[3].metric(label="當前價格", value=f"TWD {item['價格']:,.2f}")
+st.markdown("---")
+
+
+# 詳細表格
 st.dataframe(
     results_df,
     hide_index=True,
