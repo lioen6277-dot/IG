@@ -23,7 +23,7 @@ TICKER_MAP = {
     "0050": "0050.TW",
     "00878": "00878.TW",
 }
-# 預設分配權重
+# 預設分配權重 (必須總和為 1.0)
 ALLOCATION_WEIGHTS = {
     "009813": 0.50,
     "0050": 0.30,
@@ -61,12 +61,6 @@ h2, h3, h4 {{
 
 /* -------------------- 文字與指標卡片樣式 (核心優化部分) -------------------- */
 
-/* Data Editor 表頭背景色 (Settings 區塊視覺一致性) */
-.st-emotion-cache-1c19gh9 {{
-    background-color: {ACCENT_COLOR} !important;
-    color: white !important;
-}}
-
 /* Base Card Style */
 .metric-card {{
     background: rgba(255, 255, 255, 0.05); 
@@ -83,7 +77,7 @@ h2, h3, h4 {{
     border-left: 3px solid {PRIMARY_COLOR}; 
 }}
 
-/* Detail Card - for the breakdown section, using a light border */
+/* Detail Card - for the breakdown section / input section */
 .metric-card-detail {{
     background: rgba(255, 255, 255, 0.03); 
     border-left: 1px solid rgba(255, 255, 255, 0.1); 
@@ -110,7 +104,7 @@ h2, h3, h4 {{
 /* Value text - Regular style for Cost, Budget, Price */
 .value-text-regular {{
     color: {TEXT_COLOR};
-    font-size: 1.2em; /* 略微縮小以適應緊湊佈局 */
+    font-size: 1.2em; 
     font-weight: bold;
 }}
 
@@ -130,6 +124,25 @@ h2, h3, h4 {{
     margin-top: 1rem;
     margin-bottom: 0.2rem;
     border-bottom: 1px dashed rgba(240, 128, 128, 0.5); 
+}}
+
+/* --- 專門針對 st.number_input 的樣式優化 (使其融入卡片) --- */
+
+/* 隱藏 Streamlit 的預設 label，因為我們已經有了 custom label-text */
+.stNumberInput label {{
+    display: none !important;
+}}
+
+/* 將 number input 的背景與邊框調整到與卡片一致的深色調 */
+.stNumberInput > div > div {{
+    background-color: rgba(0, 0, 0, 0.2); 
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+}}
+
+/* 確保 number input 容器與 label-text 對齊 */
+.stNumberInput {{
+    margin-top: -5px; /* 輕微上移以縮短與標籤的距離 */
 }}
 
 /* -------------------- 其他微調 -------------------- */
@@ -157,34 +170,30 @@ hr {{
 def get_current_prices(ticker_map):
     """
     從 Yahoo Finance 獲取即時價格 (60秒快取)。
-    已優化錯誤處理，確保即使 API 失敗或價格無效，應用程式仍能穩定運行。
     """
     prices = {}
     fetch_time = datetime.now()
     tickers = list(ticker_map.values())
     
     try:
-        # 設置較短的超時時間，避免長時間阻塞
+        # 設置較短的超時時間
         data = yf.download(tickers, period="1d", interval="1m", progress=False, timeout=5)
         
         for code, ticker in ticker_map.items():
             try:
-                # 檢查數據是否包含該股票代碼且有有效的收盤價
                 if not data.empty and ticker in data['Close']:
                     price_series = data['Close'][ticker]
-                    # 排除 NaN 值並取得最後一個有效價格
                     valid_prices = price_series.dropna()
                     if not valid_prices.empty:
                         price = valid_prices.iloc[-1]
                         prices[code] = round(price, 2)
                     else:
-                        prices[code] = 0.0 # 數據為空或 NaN 則設為 0
+                        prices[code] = 0.0
                 else:
                     prices[code] = 0.0
             except Exception:
-                prices[code] = 0.0 # 單一股票處理錯誤
+                prices[code] = 0.0
     except Exception:
-        # 網路或 yfinance 嚴重錯誤，全部價格設為 0
         st.warning("⚠️ 無法獲取行情數據，請檢查網絡連接或代碼是否正確。所有價格已設為 0。")
         for code in ticker_map.keys():
             prices[code] = 0.0
@@ -194,7 +203,6 @@ def get_current_prices(ticker_map):
 def calculate_investment(edited_df, total_budget, fee_rate):
     """
     計算投資分配結果。
-    已優化計算邏輯，確保總成本絕對不超過分配預算，並正確處理最低手續費問題。
     """
     results_list = []
     total_spent = 0.0
@@ -202,7 +210,7 @@ def calculate_investment(edited_df, total_budget, fee_rate):
     for _, row in edited_df.iterrows():
         code = row["標的代號"]
         weight = row["設定比例"]
-        price = row["當前價格 (自動獲取)"]
+        price = row["當前價格 (自動獲取)"] # 使用 session state 中的價格
         allocated_budget = total_budget * weight
         
         shares_to_buy = 0
@@ -213,34 +221,27 @@ def calculate_investment(edited_df, total_budget, fee_rate):
             # 1. 估算最高可買股數 (使用簡化公式: 股數 = 預算 / (價格 * (1 + 費率)))
             shares_to_buy = int(allocated_budget / (price * (1 + fee_rate)))
             
-            # 2. 如果一股都買不起，則停在 0
             if shares_to_buy < 0:
                 shares_to_buy = 0
             
-            # 3. 如果能買，計算該股數下的成本和手續費
             if shares_to_buy > 0:
                 fee_calculated = price * shares_to_buy * fee_rate
                 estimated_fee = max(MIN_FEE, round(fee_calculated))
                 total_cost = (shares_to_buy * price) + estimated_fee
             
-                # 4. 健壯性檢查：如果最低手續費 (1元) 導致總成本超支，則減少一股
+                # 健壯性檢查：如果最低手續費導致總成本超支，則減少一股
                 if total_cost > allocated_budget:
-                    # 減少一股後重新計算
                     shares_to_buy -= 1
                     
                     if shares_to_buy > 0:
-                        # 重新計算股數減少後的費用
                         fee_recalculated = price * shares_to_buy * fee_rate
                         estimated_fee = max(MIN_FEE, round(fee_recalculated))
                         total_cost = (shares_to_buy * price) + estimated_fee
                     else:
-                         # 如果減到 0，確保成本也為 0
                         estimated_fee = 0
                         total_cost = 0.0
 
-        # 確保總成本不會因為浮點數誤差導致微小超支
         if total_cost > allocated_budget:
-             # 如果仍然超支 (通常是四捨五入問題)，則強制設為分配預算 (這是一個視覺上的保險)
              total_cost = allocated_budget 
 
         total_spent += total_cost
@@ -257,7 +258,7 @@ def calculate_investment(edited_df, total_budget, fee_rate):
     return results_list, total_spent
 
 def render_budget_metrics(total_budget, total_spent):
-    """渲染總預算指標卡片 (使用客製化 Markdown 樣式)"""
+    """渲染總預算指標卡片 (3欄)"""
     col1, col2, col3 = st.columns(3)
     
     with col1:
@@ -278,7 +279,6 @@ def render_budget_metrics(total_budget, total_spent):
     
     with col3:
         remaining = total_budget - total_spent
-        # 根據剩餘預算決定文字顏色 (負值使用強調色)
         remaining_color = ACCENT_COLOR if remaining < 0 else TEXT_COLOR
         st.markdown(f"""
         <div class='metric-card metric-card-main'>
@@ -291,10 +291,8 @@ def render_ticker_results(results_list):
     """渲染每檔股票的關鍵投資建議 (4個關鍵指標卡片)"""
     
     for item in results_list:
-        # 標題獨立顯示
         st.markdown(f"<div class='ticker-group-header'>✅ {item['標的代號']} ({item['比例']})</div>", unsafe_allow_html=True)
         
-        # 使用 4 欄佈局 (建議股數、預估成本、分配預算、當前價格)
         col1, col2, col3, col4 = st.columns(4) 
         
         # Col 1: 建議股數 (最大化高亮)
@@ -330,19 +328,15 @@ def render_ticker_results(results_list):
         """, unsafe_allow_html=True)
 
 def render_detailed_breakdown_cards(results_list):
-    """
-    渲染詳細投資明細，使用 3 欄指標卡片佈局取代 st.dataframe。
-    只顯示明細中獨有的欄位：分配金額、預估手續費、總成本。
-    """
+    """渲染詳細投資明細，使用 5 欄指標卡片佈局取代表格。"""
     
     for item in results_list:
-        # 標題：股票代號與分配比例
         st.markdown(f"<div class='ticker-group-header' style='margin-top: 1.5rem;'>📌 {item['標的代號']} 詳細明細 ({item['比例']})</div>", unsafe_allow_html=True)
         
-        # 使用 3 欄佈局顯示所有詳細數據
+        # 使用 5 欄佈局顯示所有詳細數據
         col_s1, col_s2, col_s3, col_s4, col_s5 = st.columns(5) 
         
-        # 1. 建議股數 (高亮且在詳細中再次顯示)
+        # 1. 建議股數 
         col_s1.markdown(f"""
         <div class='metric-card metric-card-detail'>
             <div class='label-text'>建議股數</div>
@@ -382,7 +376,71 @@ def render_detailed_breakdown_cards(results_list):
         </div>
         """, unsafe_allow_html=True)
         
-        st.markdown("---") # 用於分隔每檔股票的詳細明細
+        st.markdown("---") 
+
+def render_editable_input_cards(ticker_map, allocation_weights):
+    """
+    渲染價格與比例設定區塊，將所有輸入欄位整合到一個指標卡片容器中。
+    """
+    st.subheader("⚙️ 價格與比例設定 (卡片化可編輯)")
+    st.caption("💬 請在 **價格** 欄位輸入您想測試的數字。標的代號與比例為固定配置。")
+
+    # 使用一個大型容器卡片包裹所有輸入 (視覺整合為一個區塊)
+    st.markdown(f"<div class='metric-card metric-card-main' style='border-left: 5px solid {ACCENT_COLOR};'>", unsafe_allow_html=True)
+    
+    for code in ticker_map.keys():
+        weight = allocation_weights[code]
+        
+        # 每個標的使用一個子標題和一組 3 欄佈局
+        st.markdown(f"<div class='ticker-group-header' style='margin-top: 0.5rem; border-bottom: 1px dashed rgba(255, 255, 255, 0.2);'>➡️ {code}</div>", unsafe_allow_html=True)
+        
+        # 3 欄佈局：代號 (固定), 比例 (固定), 價格輸入卡片 (可編輯)
+        cols = st.columns(3) 
+        
+        # Col 1: Ticker (固定顯示 - 簡化內部卡片樣式)
+        with cols[0]:
+            st.markdown(f"""
+            <div style='padding: 0.5rem 0;'>
+                <div class='label-text'>標的代號</div>
+                <div class='value-text-regular'>{code}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # Col 2: Weight (固定顯示 - 簡化內部卡片樣式)
+        with cols[1]:
+            st.markdown(f"""
+            <div style='padding: 0.5rem 0;'>
+                <div class='label-text'>設定比例</div>
+                <div class='value-text-regular' style='color: {PRIMARY_COLOR};'>{weight*100:.0f}%</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # Col 3: Editable Price Input Card (核心編輯區塊 - 簡化內部卡片樣式)
+        with cols[2]:
+            st.markdown(f"""
+            <div style='padding: 0.5rem 0; padding-top: 0.7rem;'>
+                <div class='label-text' style='margin-bottom: 0.1rem;'>價格 (TWD)</div>
+            """, unsafe_allow_html=True)
+            
+            # 嵌入 st.number_input，並將其結果存回 session state
+            price_value = st.session_state.editable_prices.get(code, 0.01)
+            new_price = st.number_input(
+                label=f"Price_Input_{code}",
+                min_value=0.01,
+                value=price_value,
+                step=0.01,
+                format="%.2f",
+                key=f"price_input_{code}",
+                label_visibility="collapsed" # 隱藏預設標籤，使用 custom label-text
+            )
+            st.markdown("</div>", unsafe_allow_html=True) # 關閉 custom div
+
+            # 更新 session state
+            st.session_state.editable_prices[code] = new_price
+        
+        # st.markdown("<div style='margin-top: -15px;'></div>", unsafe_allow_html=True) # 消除多餘間距
+
+    st.markdown("</div>", unsafe_allow_html=True) # 關閉主要容器卡片
 
 
 # ========== 頁面主體邏輯 ==========
@@ -396,6 +454,10 @@ with st.spinner('正在從 Yahoo Finance 獲取最新報價...'):
 
 # 使用優化後的 st.info 風格
 st.info(f"📍 報價更新時間：{fetch_time.strftime('%Y-%m-%d %H:%M:%S')} (價格資料每 60 秒自動更新一次)")
+
+# --- NEW: 初始化 Session State 以管理可編輯價格 ---
+if 'editable_prices' not in st.session_state:
+    st.session_state.editable_prices = current_prices.copy()
 
 # -------------------- Sidebar 參數設定 --------------------
 st.sidebar.header("🎯 投資參數設定")
@@ -416,42 +478,18 @@ fee_rate = st.sidebar.number_input(
 )
 st.sidebar.caption(f"💡 手續費最低 {MIN_FEE} 元 / 筆。請使用 **小數** 格式輸入。")
 
-# 初始化數據編輯框
-data_to_edit = {
-    "標的代號": list(current_prices.keys()),
-    "設定比例": [ALLOCATION_WEIGHTS[code] for code in current_prices.keys()],
-    "當前價格 (自動獲取)": [current_prices[code] for code in current_prices.keys()]
-}
-input_df = pd.DataFrame(data_to_edit)
-
-# ========== 價格與比例輸入（供使用者編輯）==========
+# ========== 價格與比例輸入（卡片化編輯區）==========
 st.divider()
-st.subheader("⚙️ 價格與比例設定")
-st.caption("💬 報價為自動獲取，您可手動點擊 **當前價格** 欄位進行情境測試。其他欄位已鎖定。建議比例總和必須為 1.0 (100%)。")
+render_editable_input_cards(TICKER_MAP, ALLOCATION_WEIGHTS)
 
-# 保持 st.data_editor 進行輸入，確保功能性最佳
-edited_df = st.data_editor(
-    input_df,
-    hide_index=True,
-    column_config={
-        "當前價格 (自動獲取)": st.column_config.NumberColumn(
-            "當前價格 (TWD)",
-            min_value=0.01,
-            format="%.2f"
-        )
-    },
-    disabled=["標的代號", "設定比例"], # 鎖定標的代號與比例，只允許修改價格
-    num_rows="fixed",
-    key="data_editor_key",
-    use_container_width=True
-)
-
-# 檢查比例合計 (即使鎖定，仍需檢查以防初始配置錯誤)
-weight_sum = edited_df['設定比例'].sum()
-# 由於浮點數計算，使用微小的容忍度 (0.01)
-if abs(weight_sum - 1.0) > 0.01:
-    st.error(f"⚠️ 錯誤：設定比例總和必須為 100% (目前為 {weight_sum*100:.0f}%)，請調整。")
-    st.stop()
+# ========== 構造 DataFrame for Calculation (從 Session State 讀取數據) ==========
+# 根據固定比例和 Session State 中的可編輯價格構造計算用的 DataFrame
+data_for_calc = {
+    "標的代號": list(TICKER_MAP.keys()),
+    "設定比例": [ALLOCATION_WEIGHTS[code] for code in TICKER_MAP.keys()],
+    "當前價格 (自動獲取)": [st.session_state.editable_prices[code] for code in TICKER_MAP.keys()]
+}
+edited_df = pd.DataFrame(data_for_calc)
 
 # ========== 計算（基於編輯後的數據）==========
 results_list, total_spent = calculate_investment(edited_df, total_budget, fee_rate)
@@ -468,7 +506,7 @@ render_ticker_results(results_list)
 
 st.divider()
 st.header("📋 詳細投資明細 (卡片化)")
-render_detailed_breakdown_cards(results_list) # 使用新的卡片化函式
+render_detailed_breakdown_cards(results_list) 
 
 st.divider()
 st.caption("📌 計算邏輯：優先確保買入股數最大化，且總花費不超過分配預算；手續費最低 1 元計算。")
