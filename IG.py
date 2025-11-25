@@ -1,32 +1,77 @@
 import streamlit as st
 import pandas as pd
-import sys
+import yfinance as yf
+from datetime import datetime
+import time
 
 # --- 1. 固定參數與配置 ---
 
 # 設定頁面標題和佈局
 st.set_page_config(
-    page_title="零股投資計算機",
+    page_title="零股投資計算機 (即時報價)",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# 手續費率 (F欄下方)
+# 台灣股市代碼對應 Yahoo Finance Ticker
+TICKER_MAP = {
+    "009813": "009813.TW",  # **注意: 009813.TW 可能為無效代碼，請自行檢查。**
+    "0050": "0050.TW",
+    "00878": "00878.TW",
+}
+# 預設比例
+ALLOCATION_WEIGHTS = {
+    "009813": 0.50, 
+    "0050": 0.30, 
+    "00878": 0.20
+}
+
 FEE_RATE_DEFAULT: float = 0.001425  # 0.1425%
 MIN_FEE: int = 1  # 零股手續費最低 1 元
 
-# 預設標的資料 (A, B, C 欄的初始值)
-DEFAULT_STOCKS = pd.DataFrame({
-    "標的代號": ["009813", "0050", "00878"],
-    "設定比例": [0.50, 0.30, 0.20],
-    "當前價格 (請輸入)": [10.00, 60.00, 21.00]  # 初始範例價格
-})
+# --- 2. 價格獲取函式 (使用 Streamlit 快取) ---
 
-# --- 2. 側邊欄輸入區 (Sidebar Inputs) ---
+@st.cache_data(ttl=60) # 設定快取時間為 60 秒 (每 60 秒才會重新向 Yahoo Finance 請求一次資料)
+def get_current_prices(ticker_map):
+    """從 Yahoo Finance 獲取即時價格"""
+    prices = {}
+    fetch_time = datetime.now()
+    
+    # 使用 yf.download 批量獲取數據
+    tickers = list(ticker_map.values())
+    data = yf.download(tickers, period="1d", interval="1m", progress=False)
+
+    for code, ticker in ticker_map.items():
+        try:
+            # 嘗試取得最新收盤價 (Close)
+            if not data.empty and ticker in data['Close']:
+                price = data['Close'][ticker].iloc[-1]
+                prices[code] = round(price, 2)
+            else:
+                st.warning(f"⚠️ 無法獲取 {code} ({ticker}) 最新價格，將使用預設值或 0。")
+                prices[code] = 0.0
+        except Exception:
+            prices[code] = 0.0
+            
+    return prices, fetch_time
+
+
+# --- 3. Streamlit 應用程式開始 ---
+
+st.title("📈 Streamlit 零股投資分配計算機 (即時報價)")
+st.markdown("---")
+
+# 獲取價格
+with st.spinner('正在從 Yahoo Finance 獲取最新報價...'):
+    current_prices, fetch_time = get_current_prices(TICKER_MAP)
+
+st.info(f"報價更新時間：{fetch_time.strftime('%Y-%m-%d %H:%M:%S')} (每 60 秒自動更新一次)")
+
+
+# --- 4. 側邊欄輸入區 (Sidebar Inputs) ---
 
 st.sidebar.header("🎯 投資參數設定")
 
-# 總投資額 (對應您的表格 '投資預算')
 total_budget = st.sidebar.number_input(
     "每月投資總預算 (TWD)",
     min_value=1000,
@@ -35,7 +80,6 @@ total_budget = st.sidebar.number_input(
     format="%d"
 )
 
-# 手續費率 (可調整)
 fee_rate = st.sidebar.number_input(
     "手續費率 (0.xxxx)",
     min_value=0.0001,
@@ -46,21 +90,26 @@ fee_rate = st.sidebar.number_input(
 
 st.sidebar.caption(f"手續費最低 {MIN_FEE} 元 / 筆")
 
-# --- 3. 主要內容區 (Main Content) ---
 
-st.title("📈 Streamlit 零股投資分配計算機")
-st.markdown("---")
+# --- 5. 數據準備與輸入區 ---
 
-st.subheader("價格輸入與比例調整 (C欄)")
-st.caption("請直接在表格中編輯『當前價格』欄位的數值")
+# 建立用於顯示和調整的 DataFrame
+data_to_edit = {
+    "標的代號": list(current_prices.keys()),
+    "設定比例": [ALLOCATION_WEIGHTS[code] for code in current_prices.keys()],
+    "當前價格 (自動獲取)": [current_prices[code] for code in current_prices.keys()]
+}
+input_df = pd.DataFrame(data_to_edit)
 
-# 使用 data_editor 讓使用者編輯價格
+st.subheader("價格與比例輸入 (可手動修改價格進行情境測試)")
+
+# 使用 data_editor 顯示價格，並允許使用者手動修改
 edited_df = st.data_editor(
-    DEFAULT_STOCKS,
+    input_df,
     hide_index=True,
     column_config={
-        "當前價格 (請輸入)": st.column_config.NumberColumn(
-            "當前價格 (請輸入)",
+        "當前價格 (自動獲取)": st.column_config.NumberColumn(
+            "當前價格 (TWD)",
             min_value=0.01,
             format="%.2f"
         )
@@ -70,11 +119,11 @@ edited_df = st.data_editor(
 
 # 檢查輸入比例總和
 if edited_df['設定比例'].sum() != 1.0:
-    st.error(f"⚠️ 警告：設定比例總和必須為 100% (目前為 {edited_df['設定比例'].sum()*100:.0f}%)，請調整。")
+    st.error(f"⚠️ 錯誤：設定比例總和必須為 100% (目前為 {edited_df['設定比例'].sum()*100:.0f}%)，請調整。")
     st.stop()
 
 
-# --- 4. 計算核心邏輯 ---
+# --- 6. 計算核心邏輯 ---
 
 results_list = []
 total_spent = 0.0
@@ -82,7 +131,7 @@ total_spent = 0.0
 for index, row in edited_df.iterrows():
     code = row["標的代號"]
     weight = row["設定比例"]
-    price = row["當前價格 (請輸入)"]
+    price = row["當前價格 (自動獲取)"] # 使用使用者可能調整過的新價格
 
     # 1. 分配金額 (D欄)
     allocated_budget = total_budget * weight
@@ -93,11 +142,9 @@ for index, row in edited_df.iterrows():
 
     if price > 0:
         # 2. 建議買入股數 (E欄)
-        # 確保總成本不超支 (價格 * (1 + 費率))
         shares_to_buy = int(allocated_budget / (price * (1 + fee_rate)))
 
         # 3. 預估手續費 (F欄)
-        # 邏輯: MAX(1, ROUND(價格 * 股數 * 費率))
         fee_calculated = price * shares_to_buy * fee_rate
         estimated_fee = max(MIN_FEE, round(fee_calculated))
 
@@ -108,15 +155,15 @@ for index, row in edited_df.iterrows():
 
     results_list.append({
         "標的代號": code,
-        "設定比例": f"{weight*100:.0f}%",
-        "當前價格 (TWD)": price,
-        "分配金額 (D)": allocated_budget,
-        "建議買入股數 (E)": shares_to_buy,
-        "預估手續費 (F)": estimated_fee,
-        "總成本 (G)": total_cost,
+        "比例": f"{weight*100:.0f}%",
+        "價格": price,
+        "分配金額": allocated_budget,
+        "建議股數": shares_to_buy,
+        "預估手續費": estimated_fee,
+        "總成本": total_cost,
     })
 
-# --- 5. 輸出結果 ---
+# --- 7. 輸出結果 ---
 
 results_df = pd.DataFrame(results_list)
 
@@ -125,9 +172,9 @@ st.dataframe(
     results_df,
     hide_index=True,
     column_config={
-        "分配金額 (D)": st.column_config.NumberColumn(format="TWD %d"),
-        "總成本 (G)": st.column_config.NumberColumn(format="TWD %d"),
-        "當前價格 (TWD)": st.column_config.NumberColumn(format="TWD %.2f")
+        "價格": st.column_config.NumberColumn(format="TWD %.2f"),
+        "分配金額": st.column_config.NumberColumn(format="TWD %d"),
+        "總成本": st.column_config.NumberColumn(format="TWD %d"),
     }
 )
 
@@ -143,6 +190,4 @@ with col2:
 
 with col3:
     st.metric(label="🎁 剩餘預算", value=f"TWD {total_budget - total_spent:,.0f}")
-
-st.markdown("---")
-st.caption("計算邏輯依據：優先確保買入股數最大化，且總花費不超過預算；手續費最低 1 元計算。")
+    
