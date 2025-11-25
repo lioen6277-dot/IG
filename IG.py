@@ -6,50 +6,59 @@ from datetime import datetime
 PRIMARY_COLOR = "#f08080"  # 鮭魚色
 ACCENT_COLOR = "#e9967a"   # 鮭魚色（用於建議股數）
 TEXT_COLOR = "#ffffff"      # 白色
-LABEL_COLOR = "#d0d0d0"     # 淡灰白
+LABEL_COLOR = "#b0b0b0"     # 淡灰
 
 st.markdown(f"""
 <style>
 .stApp {{
-    font-size: 1.05rem;
+    font-size: 0.95rem;
 }}
 
 h1 {{
-    font-size: 2.0em !important;
+    font-size: 1.8em !important;
     color: {PRIMARY_COLOR} !important;
     font-weight: bold !important;
+    margin-bottom: 0.5rem !important;
 }}
 
-h2, h3, h4 {{
-    font-size: 1.5em !important;
+h2 {{
+    font-size: 1.35em !important;
     color: {PRIMARY_COLOR} !important;
     font-weight: bold !important;
+    margin: 0.8rem 0 0.3rem 0 !important;
+}}
+
+h3, h4 {{
+    font-size: 1.2em !important;
+    color: {PRIMARY_COLOR} !important;
+    font-weight: bold !important;
+    margin: 0.5rem 0 0.2rem 0 !important;
 }}
 
 h5, h6 {{
-    font-size: 1.2em !important;
+    font-size: 1.05em !important;
     color: {PRIMARY_COLOR} !important;
 }}
 
 p, div, span {{
-    color: {TEXT_COLOR} !important;
-    font-size: 1.05em !important;
+    color: {TEXT_COLOR};
+    font-size: 0.95em;
 }}
 
 div[data-testid="stMetricValue"] {{
     color: {TEXT_COLOR} !important;
-    font-size: 1.6rem !important;
+    font-size: 1.35rem !important;
     font-weight: bold !important;
 }}
 
 div[data-testid="stMetricLabel"] {{
     color: {LABEL_COLOR} !important;
-    font-size: 1.0em !important;
+    font-size: 0.9em !important;
 }}
 
 .st-emotion-cache-1dpn6dr {{
     color: {PRIMARY_COLOR} !important;
-    font-size: 1.2em !important;
+    font-size: 1.05em !important;
 }}
 
 .st-emotion-cache-1c19gh9 {{
@@ -58,16 +67,16 @@ div[data-testid="stMetricLabel"] {{
 }}
 
 div[data-testid="stDataFrame"] {{
-    font-size: 1.05rem !important;
+    font-size: 0.9rem !important;
 }}
 
 div[data-testid="stDataFrame"] th {{
-    font-size: 1.1em !important;
+    font-size: 0.95em !important;
     color: {TEXT_COLOR} !important;
 }}
 
 div[data-testid="stDataFrame"] td {{
-    font-size: 1.05em !important;
+    font-size: 0.9em !important;
     color: {TEXT_COLOR} !important;
 }}
 
@@ -75,99 +84,98 @@ div[data-testid="stDataFrame"] td {{
 .metric-card {{
     background: rgba(255, 255, 255, 0.05);
     border-radius: 8px;
-    padding: 1.5rem 1.2rem;
-    border-left: 4px solid {PRIMARY_COLOR};
-    margin-bottom: 1rem;
+    padding: 1.2rem 1rem;
+    border-left: 3px solid {PRIMARY_COLOR};
+    margin-bottom: 0.8rem;
 }}
 
 .label-text {{
-    font-size: 1.0em;
+    font-size: 0.9em;
     color: {LABEL_COLOR};
     font-weight: 500;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.3rem;
 }}
 
 .value-text {{
     color: {TEXT_COLOR};
-    font-size: 1.6em;
+    font-size: 1.35em;
     font-weight: bold;
 }}
 
 .value-text-highlight {{
     color: {ACCENT_COLOR};
-    font-size: 1.6em;
+    font-size: 1.35em;
     font-weight: bold;
 }}
 
 .ticker-header {{
     color: {PRIMARY_COLOR};
     font-weight: bold;
-    font-size: 1.2em;
-    padding: 1rem 0;
+    font-size: 1.1em;
+    padding: 0.8rem 0;
     border-bottom: 2px solid rgba(240, 128, 128, 0.3);
-    margin-bottom: 1rem;
+    margin-bottom: 0.6rem;
 }}
 
 .ticker-metric {{
     flex: 1;
-    min-width: 160px;
+    min-width: 150px;
 }}
 
 .ticker-metric-label {{
-    font-size: 0.95em;
+    font-size: 0.85em;
     color: {LABEL_COLOR};
     font-weight: 500;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.3rem;
 }}
 
 .ticker-metric-value {{
-    font-size: 1.5em;
+    font-size: 1.25em;
     color: {TEXT_COLOR};
     font-weight: bold;
 }}
 
 .ticker-metric-value-highlight {{
-    font-size: 1.5em;
+    font-size: 1.3em;
     color: {ACCENT_COLOR};
     font-weight: bold;
 }}
 
 /* Data Editor 樣式 */
 .stDataEditor {{
-    font-size: 1.05em !important;
+    font-size: 0.95em !important;
 }}
 
 .st-emotion-cache-16idsys p {{
-    font-size: 1.05em !important;
+    font-size: 0.95em !important;
     color: {TEXT_COLOR} !important;
 }}
 
 /* Caption 和 Markdown 文本 */
 .stCaption {{
-    font-size: 1.0em !important;
+    font-size: 0.85em !important;
     color: {LABEL_COLOR} !important;
 }}
 
 /* Info box */
 .stAlert {{
-    font-size: 1.05em !important;
-}}
-
-/* Subheader */
-h4, h5 {{
-    font-size: 1.3em !important;
-    color: {PRIMARY_COLOR} !important;
+    font-size: 0.95em !important;
 }}
 
 /* Button text */
 button {{
-    font-size: 1.05em !important;
+    font-size: 0.95em !important;
 }}
 
 /* Input text */
 input, select {{
-    font-size: 1.05em !important;
+    font-size: 0.95em !important;
     color: {TEXT_COLOR} !important;
+}}
+
+/* 分隔線 */
+hr {{
+    margin: 0.8rem 0 !important;
 }}
 
 </style>
@@ -211,8 +219,8 @@ def get_current_prices(ticker_map):
                     prices[code] = 0.0
             except Exception:
                 prices[code] = 0.0
-    except Exception as e:
-        st.warning(f"無法獲取行情數據，請檢查網絡連接。")
+    except Exception:
+        st.warning("無法獲取行情數據，請檢查網絡連接。")
         for code in ticker_map.keys():
             prices[code] = 0.0
     
@@ -324,7 +332,7 @@ def render_ticker_results(results_list):
             </div>
             """, unsafe_allow_html=True)
         
-        st.markdown("<hr style='margin: 1rem 0; border: none; border-top: 1px solid rgba(240, 128, 128, 0.2);'>", unsafe_allow_html=True)
+        st.markdown("<hr style='margin: 0.6rem 0; border: none; border-top: 1px solid rgba(240, 128, 128, 0.2);'>", unsafe_allow_html=True)
 
 # ========== 頁面主體 ==========
 
