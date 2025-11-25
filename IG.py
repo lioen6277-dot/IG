@@ -6,7 +6,7 @@ import time
 
 # 設定頁面配置必須在 CSS 注入前 (必須放在腳本最頂端)
 st.set_page_config(
-    page_title="零股投資計算機 (第110次極致優化版)",
+    page_title="零股投資計算機 (第100次極致優化版)",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -71,11 +71,11 @@ h1 {{
     margin-bottom: 0.5rem;
 }}
 
-/* Detail Card (For Ticker Results) - Reduced padding for tighter fit */
+/* Detail Card (For Ticker Results) */
 .metric-card-detail {{
-    background: #252525; 
+    background: #252525; /* 略淺於主卡，增加層次 */
     border-radius: 6px;
-    padding: 0.6rem; /* 減少內距 */
+    padding: 0.8rem;
     margin-bottom: 0.3rem;
 }}
 
@@ -84,7 +84,7 @@ h1 {{
     margin-bottom: 1.5rem;
     padding: 1rem;
     border-radius: 8px;
-    background: rgba(255, 255, 255, 0.03); 
+    background: rgba(255, 255, 255, 0.03); /* 每個標的獨立的微卡片背景 */
     border-left: 3px solid {PRIMARY_COLOR};
 }}
 
@@ -114,7 +114,7 @@ h1 {{
 /* Value text - Highlighted style for Shares (最大化強調) */
 .value-text-highlight {{
     color: {ACCENT_COLOR}; 
-    font-size: 1.8em; /* 略微放大 */
+    font-size: 1.7em; 
     font-weight: bold;
 }}
 
@@ -246,7 +246,7 @@ def calculate_investment(edited_df, total_budget, fee_rate):
         results_list.append({
             "標的代號": code,
             "比例": f"{weight*100:.0f}%",
-            "價格": price, # 注意：這是從 session state 讀取，用於計算的測試價格
+            "價格": price,
             "分配金額": allocated_budget,
             "建議股數": shares_to_buy,
             "預估手續費": estimated_fee,
@@ -285,64 +285,56 @@ def render_budget_metrics(total_budget, total_spent):
         </div>
         """, unsafe_allow_html=True)
 
-def render_unified_ticker_panel(results_list, original_prices):
+def render_unified_ticker_panel(results_list):
     """
     渲染單一整合面板：將價格輸入、核心結果和詳細明細融合在一起。
-    新增 Original Price 欄位，並調整排版。
     """
     st.markdown("<div class='card-section-header'>🔥 標的物 - 價格設定與買入建議</div>", unsafe_allow_html=True)
-    st.caption("💬 **測試價格** 是您手動輸入用於計算的值；**來源報價** 則是 Yahoo Finance 的即時數據。")
+    st.caption("💬 請在 **價格 (TWD)** 欄位輸入您想測試的數字。結果會即時更新。")
     
     for item in results_list:
         code = item['標的代號']
-        original_price = original_prices.get(code, 0.0) # Yahoo Price (Source)
-        testing_price = st.session_state.editable_prices.get(code, 0.01) # User/Session Price (Input)
         
         # --- Ticker Row Container (微卡片) ---
         st.markdown("<div class='ticker-row-container'>", unsafe_allow_html=True)
         
-        # 1. 頂部：標的/比例/價格輸入 (4欄)
-        # 欄位寬度調整: [Code/Weight | Original Price | Test Price | Allocated Budget]
-        input_cols = st.columns([2, 2, 2, 2]) 
+        # 1. 頂部：標的/比例/價格輸入 (3欄)
+        input_cols = st.columns(3)
         
         # Col 1: Ticker Value & Weight
         with input_cols[0]:
             st.markdown(f"""
-            <div class='label-text'>代號 ({item['比例']})</div>
+            <div class='label-text'>標的代號 ({item['比例']})</div>
             <div class='value-text-main' style='color: {PRIMARY_COLOR}; font-size: 1.3em;'>{code}</div>
             """, unsafe_allow_html=True)
 
-        # Col 2: Original Price (Source)
+        # Col 2: Current Price
         with input_cols[1]:
-            st.markdown("<div class='label-text'>來源報價 (Yahoo)</div>", unsafe_allow_html=True)
-            st.markdown(f"<div class='value-text-regular' style='color: {LABEL_COLOR};'>{original_price:,.2f}</div>", unsafe_allow_html=True)
+            st.markdown("<div class='label-text'>當前價格 (TWD)</div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='value-text-regular' style='color: {LABEL_COLOR};'>{item['價格']:,.2f}</div>", unsafe_allow_html=True)
 
         # Col 3: Editable Price Input (Testing)
         with input_cols[2]:
             st.markdown("<div class='label-text'>測試價格 (TWD)</div>", unsafe_allow_html=True)
+            # 從 session state 讀取可編輯價格
+            price_value = st.session_state.editable_prices.get(code, 0.01)
             new_price = st.number_input(
                 label=f"Price_Input_Test_{code}",
                 min_value=0.01,
-                value=testing_price, 
+                value=price_value,
                 step=0.01,
                 format="%.2f",
                 key=f"price_input_{code}",
                 label_visibility="collapsed"
             )
+            # 更新 session state
             st.session_state.editable_prices[code] = new_price
-        
-        # Col 4: Allocated Budget (限制條件)
-        with input_cols[3]:
-            st.markdown("<div class='label-text'>💸 分配預算</div>", unsafe_allow_html=True)
-            st.markdown(f"<div class='value-text-regular' style='color: {TEXT_COLOR};'>TWD {item['分配金額']:,.0f}</div>", unsafe_allow_html=True)
-
             
         # --- 分隔線 ---
         st.markdown("<hr style='margin: 0.8rem 0; border-top: 1px dashed rgba(255, 255, 255, 0.1);'>", unsafe_allow_html=True)
 
-        # 2. 底部：建議結果與詳細明細 (4欄)
-        # 欄位寬度調整: [建議股數 | 總花費 | 預估手續費 | 計算價格]
-        result_cols = st.columns(4) 
+        # 2. 底部：建議結果與詳細明細 (5欄)
+        result_cols = st.columns(5) 
         
         # Col 1: 建議股數 (結果核心)
         with result_cols[0]:
@@ -353,30 +345,39 @@ def render_unified_ticker_panel(results_list, original_prices):
             </div>
             """, unsafe_allow_html=True)
         
-        # Col 2: 總花費 (總成本)
+        # Col 2: 總成本
         with result_cols[1]:
             st.markdown(f"""
             <div class='metric-card-detail'>
-                <div class='label-text'>總花費</div>
+                <div class='label-text'>總成本</div>
                 <div class='value-text-regular'>TWD {item['總成本']:,.0f}</div>
             </div>
             """, unsafe_allow_html=True)
         
-        # Col 3: 預估手續費
+        # Col 3: 分配預算
         with result_cols[2]:
             st.markdown(f"""
             <div class='metric-card-detail'>
-                <div class='label-text'>預估手續費</div>
+                <div class='label-text'>分配預算</div>
+                <div class='value-text-regular'>TWD {item['分配金額']:,.0f}</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        # Col 4: 預估手續費
+        with result_cols[3]:
+            st.markdown(f"""
+            <div class='metric-card-detail'>
+                <div class='label-text'>手續費</div>
                 <div class='value-text-regular'>TWD {item['預估手續費']:,.0f}</div>
             </div>
             """, unsafe_allow_html=True)
         
-        # Col 4: 實際計算價格 (來自測試價格)
-        with result_cols[3]:
+        # Col 5: 實際價格 (來自輸入/session state)
+        with result_cols[4]:
             st.markdown(f"""
             <div class='metric-card-detail'>
-                <div class='label-text'>本次計算價格</div>
-                <div class='value-text-regular'>TWD {testing_price:,.2f}</div>
+                <div class='label-text'>計算價格</div>
+                <div class='value-text-regular'>TWD {st.session_state.editable_prices.get(code, 0.01):,.2f}</div>
             </div>
             """, unsafe_allow_html=True)
 
@@ -385,7 +386,7 @@ def render_unified_ticker_panel(results_list, original_prices):
 
 # ========== 頁面主體邏輯 ==========
 
-st.title("📈 零股投資分配計算機 (第110次極致優化版)")
+st.title("📈 零股投資分配計算機 (第100次極致優化版)")
 
 # 獲取價格
 with st.spinner('正在從 Yahoo Finance 獲取最新報價...'):
@@ -436,8 +437,7 @@ st.markdown("<div class='card-section-header'>💰 投資預算總覽</div>", un
 render_budget_metrics(total_budget, total_spent)
 
 # 3. 統一結果面板 (Input + Results + Details)
-# 將 Yahoo Finance 獲取的原始價格傳入，用於顯示對比
-render_unified_ticker_panel(results_list, current_prices)
+render_unified_ticker_panel(results_list)
 
 # 4. 邏輯說明
 st.markdown(f"<div style='margin-top: 1.5rem; color: {LABEL_COLOR}; font-size: 0.9em;'>📌 計算邏輯：優先確保買入股數最大化，且總花費不超過分配預算；手續費最低 {MIN_FEE} 元計算。</div>", unsafe_allow_html=True)
