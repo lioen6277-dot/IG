@@ -1,109 +1,148 @@
+import streamlit as st
+import pandas as pd
 import sys
-from typing import List, Dict
 
-# --- 1. 固定參數設定 ---
-# 投資標的代號與比例 (對應表格 A, B 欄)
-STOCKS_ALLOCATION: List[Dict] = [
-    {"code": "009813", "weight": 0.50},
-    {"code": "0050", "weight": 0.30},
-    {"code": "00878", "weight": 0.20},
-]
+# --- 1. 固定參數與配置 ---
 
-# 手續費率 (對應表格 F 欄)
-FEE_RATE: float = 0.001425  # 0.1425%
+# 設定頁面標題和佈局
+st.set_page_config(
+    page_title="零股投資計算機",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# 手續費率 (F欄下方)
+FEE_RATE_DEFAULT: float = 0.001425  # 0.1425%
 MIN_FEE: int = 1  # 零股手續費最低 1 元
 
-def get_user_input(prompt: str, data_type=float):
-    """取得使用者輸入並確保資料類型正確"""
-    while True:
-        try:
-            user_input = input(prompt).strip()
-            if not user_input:
-                raise ValueError("輸入不能為空。")
-            return data_type(user_input)
-        except ValueError as e:
-            print(f"輸入錯誤: {e}，請重新輸入。")
-        except KeyboardInterrupt:
-            print("\n程式終止。")
-            sys.exit(0)
+# 預設標的資料 (A, B, C 欄的初始值)
+DEFAULT_STOCKS = pd.DataFrame({
+    "標的代號": ["009813", "0050", "00878"],
+    "設定比例": [0.50, 0.30, 0.20],
+    "當前價格 (請輸入)": [10.00, 60.00, 21.00]  # 初始範例價格
+})
 
-def calculate_shares(total_budget: float, stock_prices: Dict[str, float]):
-    """根據預算和價格，計算每個標的建議買入的股數和成本"""
-    
-    results: List[Dict] = []
-    total_spent: float = 0.0
+# --- 2. 側邊欄輸入區 (Sidebar Inputs) ---
 
-    print("\n--- 🛒 計算結果 ---")
-    print(f"{'代號':<8} {'比例':<8} {'現價':<8} {'分配金額':<10} {'建議股數':<10} {'預估手續費':<10} {'總成本':<10}")
-    print("-" * 75)
+st.sidebar.header("🎯 投資參數設定")
 
-    for stock in STOCKS_ALLOCATION:
-        code = stock['code']
-        weight = stock['weight']
-        price = stock_prices.get(code, 0.0)
-        
-        # 1. 計算分配金額 (對應表格 D 欄)
-        allocated_budget = total_budget * weight
+# 總投資額 (對應您的表格 '投資預算')
+total_budget = st.sidebar.number_input(
+    "每月投資總預算 (TWD)",
+    min_value=1000,
+    value=20000,
+    step=1000,
+    format="%d"
+)
 
-        shares_to_buy = 0
-        estimated_fee = 0
-        total_cost = 0.0
-        
-        if price > 0:
-            # 2. 計算建議買入股數 (對應表格 E 欄)
-            # 邏輯: 確保花費不會超過分配預算
-            # 股數 = INT(分配金額 / (價格 * (1 + 費率)))
-            shares_to_buy = int(allocated_budget / (price * (1 + FEE_RATE)))
+# 手續費率 (可調整)
+fee_rate = st.sidebar.number_input(
+    "手續費率 (0.xxxx)",
+    min_value=0.0001,
+    max_value=0.01,
+    value=FEE_RATE_DEFAULT,
+    format="%.6f"
+)
 
-            # 3. 計算預估手續費 (對應表格 F 欄)
-            # 邏輯: MAX(1, ROUND(價格 * 股數 * 費率))
-            fee_calculated = price * shares_to_buy * FEE_RATE
-            estimated_fee = max(MIN_FEE, round(fee_calculated))
-            
-            # 4. 重新確認總成本
-            total_cost = (shares_to_buy * price) + estimated_fee
+st.sidebar.caption(f"手續費最低 {MIN_FEE} 元 / 筆")
 
-        # 5. 輸出結果
-        results.append({
-            "代號": code,
-            "比例": f"{weight*100:.0f}%",
-            "現價": price,
-            "分配金額": allocated_budget,
-            "建議股數": shares_to_buy,
-            "預估手續費": estimated_fee,
-            "總成本": total_cost,
-        })
-        total_spent += total_cost
+# --- 3. 主要內容區 (Main Content) ---
 
-        # 格式化輸出
-        print(
-            f"{code:<8} {stock['比例']:<8} {price:<8.2f} {allocated_budget:<10.2f} "
-            f"{shares_to_buy:<10} {estimated_fee:<10} {total_cost:<10.2f}"
+st.title("📈 Streamlit 零股投資分配計算機")
+st.markdown("---")
+
+st.subheader("價格輸入與比例調整 (C欄)")
+st.caption("請直接在表格中編輯『當前價格』欄位的數值")
+
+# 使用 data_editor 讓使用者編輯價格
+edited_df = st.data_editor(
+    DEFAULT_STOCKS,
+    hide_index=True,
+    column_config={
+        "當前價格 (請輸入)": st.column_config.NumberColumn(
+            "當前價格 (請輸入)",
+            min_value=0.01,
+            format="%.2f"
         )
+    },
+    num_rows="fixed"
+)
 
-    print("-" * 75)
-    print(f"{'總計花費':>55} {total_spent:<10.2f}")
-    print(f"{'剩餘預算':>55} {total_budget - total_spent:<10.2f}")
-    print("-----------------------------------")
+# 檢查輸入比例總和
+if edited_df['設定比例'].sum() != 1.0:
+    st.error(f"⚠️ 警告：設定比例總和必須為 100% (目前為 {edited_df['設定比例'].sum()*100:.0f}%)，請調整。")
+    st.stop()
 
 
-def main():
-    """主程序邏輯"""
-    print("--- 零股投資預算計算機 (V1.0) ---")
-    print(f"  * 手續費率: {FEE_RATE*100:.4f}% (最低 {MIN_FEE} 元)")
-    
-    # 取得投資總預算
-    total_budget = get_user_input("請輸入本月總投資預算金額: ", data_type=float)
-    
-    # 取得各標的當前價格
-    stock_prices = {}
-    print("\n--- 請輸入各標的當前價格 ---")
-    for stock in STOCKS_ALLOCATION:
-        price = get_user_input(f"請輸入 {stock['code']} 價格 (C欄): ", data_type=float)
-        stock_prices[stock['code']] = price
+# --- 4. 計算核心邏輯 ---
 
-    # 執行計算並輸出結果
-    calculate_shares(total_budget, stock_prices)
+results_list = []
+total_spent = 0.0
 
-if __name__ == "__main__":
-    main()
+for index, row in edited_df.iterrows():
+    code = row["標的代號"]
+    weight = row["設定比例"]
+    price = row["當前價格 (請輸入)"]
+
+    # 1. 分配金額 (D欄)
+    allocated_budget = total_budget * weight
+
+    shares_to_buy = 0
+    estimated_fee = 0
+    total_cost = 0.0
+
+    if price > 0:
+        # 2. 建議買入股數 (E欄)
+        # 確保總成本不超支 (價格 * (1 + 費率))
+        shares_to_buy = int(allocated_budget / (price * (1 + fee_rate)))
+
+        # 3. 預估手續費 (F欄)
+        # 邏輯: MAX(1, ROUND(價格 * 股數 * 費率))
+        fee_calculated = price * shares_to_buy * fee_rate
+        estimated_fee = max(MIN_FEE, round(fee_calculated))
+
+        # 4. 總成本
+        total_cost = (shares_to_buy * price) + estimated_fee
+
+    total_spent += total_cost
+
+    results_list.append({
+        "標的代號": code,
+        "設定比例": f"{weight*100:.0f}%",
+        "當前價格 (TWD)": price,
+        "分配金額 (D)": allocated_budget,
+        "建議買入股數 (E)": shares_to_buy,
+        "預估手續費 (F)": estimated_fee,
+        "總成本 (G)": total_cost,
+    })
+
+# --- 5. 輸出結果 ---
+
+results_df = pd.DataFrame(results_list)
+
+st.subheader("✅ 建議投資分配與結果")
+st.dataframe(
+    results_df,
+    hide_index=True,
+    column_config={
+        "分配金額 (D)": st.column_config.NumberColumn(format="TWD %d"),
+        "總成本 (G)": st.column_config.NumberColumn(format="TWD %d"),
+        "當前價格 (TWD)": st.column_config.NumberColumn(format="TWD %.2f")
+    }
+)
+
+st.divider()
+
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    st.metric(label="💰 總投資預算", value=f"TWD {total_budget:,.0f}")
+
+with col2:
+    st.metric(label="💸 預估總花費", value=f"TWD {total_spent:,.0f}")
+
+with col3:
+    st.metric(label="🎁 剩餘預算", value=f"TWD {total_budget - total_spent:,.0f}")
+
+st.markdown("---")
+st.caption("計算邏輯依據：優先確保買入股數最大化，且總花費不超過預算；手續費最低 1 元計算。")
