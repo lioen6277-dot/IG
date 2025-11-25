@@ -32,20 +32,19 @@ ALLOCATION_WEIGHTS = {
 FEE_RATE_DEFAULT = 0.001425 # 預設費率
 MIN_FEE = 1                 # 最低手續費 (TWD)
 
-# --- 0. CSS 注入：深色模式與客製化主題 (包含字體放大與 Alert Box 優化) ---
+# --- 0. CSS 注入：深色模式與客製化主題 (全面指標卡片化) ---
 
 st.markdown(f"""
 <style>
 /* -------------------- 應用程式全域設定 (字體放大) -------------------- */
 
-/* 基礎字體調整為 1.05rem，整體放大 */
 .stApp {{
     font-size: 1.05rem; 
     color: {TEXT_COLOR};
     background-color: #0e1117; 
 }}
 
-/* -------------------- 標題樣式 (相對放大) -------------------- */
+/* -------------------- 標題樣式 -------------------- */
 h1 {{
     font-size: 2.0em !important;
     color: {PRIMARY_COLOR} !important;
@@ -53,46 +52,14 @@ h1 {{
     margin-bottom: 0.5rem !important;
 }}
 
-h2 {{
+h2, h3, h4 {{
     font-size: 1.5em !important;
     color: {PRIMARY_COLOR} !important;
     font-weight: bold !important;
     margin: 0.8rem 0 0.3rem 0 !important;
 }}
 
-h3, h4 {{
-    font-size: 1.3em !important;
-    color: {PRIMARY_COLOR} !important;
-    font-weight: bold !important;
-    margin: 0.5rem 0 0.2rem 0 !important;
-}}
-
-/* -------------------- 文字與指標卡片樣式 -------------------- */
-
-/* 一般文字顏色 (相對基線調整為 1.0em) */
-p, div, span {{
-    color: {TEXT_COLOR};
-    font-size: 1.0em; 
-}}
-
-/* st.metric 的 Value 樣式 */
-div[data-testid="stMetricValue"] {{
-    color: {TEXT_COLOR} !important; 
-    font-size: 1.5rem !important; 
-    font-weight: bold !important;
-}}
-
-/* st.metric 的 Label 樣式 */
-div[data-testid="stMetricLabel"] {{
-    color: {LABEL_COLOR} !important;
-    font-size: 0.9em !important;
-}}
-
-/* 側邊欄標題顏色 */
-.st-emotion-cache-1dpn6dr {{
-    color: {PRIMARY_COLOR} !important;
-    font-size: 1.1em !important; 
-}}
+/* -------------------- 文字與指標卡片樣式 (核心優化部分) -------------------- */
 
 /* Data Editor 表頭背景色 */
 .st-emotion-cache-1c19gh9 {{
@@ -100,18 +67,23 @@ div[data-testid="stMetricLabel"] {{
     color: white !important;
 }}
 
-/* -------------------- 客製化卡片樣式 (用於 st.columns) -------------------- */
-
-/* 總預算指標卡片樣式 */
+/* Base Card Style */
 .metric-card {{
     background: rgba(255, 255, 255, 0.05); 
     border-radius: 8px;
-    padding: 1.2rem 1rem;
-    border-left: 3px solid {PRIMARY_COLOR}; 
-    margin-bottom: 0.8rem;
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+    height: 100%; /* Ensure column content aligns */
     color: {TEXT_COLOR};
 }}
 
+/* Main Budget Card - with strong primary color border */
+.metric-card-main {{
+    padding: 1.2rem 1rem; 
+    border-left: 3px solid {PRIMARY_COLOR}; 
+}}
+
+/* Label text - used everywhere */
 .label-text {{
     font-size: 0.9em;
     color: {LABEL_COLOR};
@@ -119,70 +91,51 @@ div[data-testid="stMetricLabel"] {{
     margin-bottom: 0.3rem;
 }}
 
-/* 主要數值文字 */
-.value-text {{
+/* Value text - Main Budget style (used by col1/col2 budget metrics) */
+.value-text-main {{
     color: {TEXT_COLOR};
     font-size: 1.5em; 
     font-weight: bold;
 }}
 
-/* 建議股數概覽區塊標題 */
-.ticker-header {{
+/* Value text - Regular style for Cost, Budget, Price (used in ticker cards) */
+.value-text-regular {{
+    color: {TEXT_COLOR};
+    font-size: 1.3em; 
+    font-weight: bold;
+}}
+
+/* Value text - Highlighted style for Shares (used in ticker cards - 最大化強調) */
+.value-text-highlight {{
+    color: {ACCENT_COLOR}; 
+    font-size: 1.8em; 
+    font-weight: bold;
+}}
+
+/* Ticker Header (New unified header) */
+.ticker-group-header {{
     color: {PRIMARY_COLOR};
     font-weight: bold;
-    font-size: 1.2em;
-    padding: 0.8rem 0;
-    border-bottom: 2px solid rgba(240, 128, 128, 0.3);
-    margin-bottom: 0.6rem;
-}}
-
-/* 建議股數（高亮顯示） */
-.ticker-metric-value-highlight {{
-    font-size: 1.45em;
-    color: {ACCENT_COLOR}; 
-    font-weight: bold;
-}}
-
-/* -------------------- 表格樣式 (放大) -------------------- */
-
-div[data-testid="stDataFrame"] {{
-    font-size: 1.0rem !important; 
-}}
-
-div[data-testid="stDataFrame"] th {{
-    font-size: 1.0em !important;
-    color: {TEXT_COLOR} !important;
-}}
-
-div[data-testid="stDataFrame"] td {{
-    font-size: 1.0em !important;
-    color: {TEXT_COLOR} !important;
+    font-size: 1.3em;
+    padding: 0.5rem 0;
+    margin-top: 1rem;
+    margin-bottom: 0.2rem;
+    border-bottom: 1px dashed rgba(240, 128, 128, 0.5); /* 輕微分隔 */
 }}
 
 /* -------------------- 其他微調 -------------------- */
 
-/* Caption */
-.stCaption {{
-    font-size: 0.9em !important;
-    color: {LABEL_COLOR} !important;
-}}
-
-/* Info box (st.info) 風格覆蓋，與主題配色保持一致 */
+/* Info box (st.info) 風格覆蓋 */
 div[role="alert"] {{
-    background-color: rgba(240, 128, 128, 0.15) !important; /* Semi-transparent Primary color */
-    border-left: 5px solid {PRIMARY_COLOR} !important; /* PRIMARY_COLOR */
+    background-color: rgba(240, 128, 128, 0.15) !important; 
+    border-left: 5px solid {PRIMARY_COLOR} !important; 
     color: {TEXT_COLOR} !important;
     font-size: 1.0em !important; 
 }}
 
-/* 確保 alert 內的文字顏色正確 */
-div[role="alert"] p {{
-    color: {TEXT_COLOR} !important;
-}}
-
-/* 分隔線 */
+/* 分隔線 (優化垂直間距) */
 hr {{
-    margin: 0.8rem 0 !important;
+    margin: 0.6rem 0 !important; 
 }}
 
 </style>
@@ -262,7 +215,6 @@ def calculate_investment(edited_df, total_budget, fee_rate):
                 total_cost = (shares_to_buy * price) + estimated_fee
             
                 # 4. 健壯性檢查：如果最低手續費 (1元) 導致總成本超支，則減少一股
-                # 這種情況只在預算剛好只能買一股，且最低手續費導致超支時發生 (極端情況)
                 if total_cost > allocated_budget:
                     # 減少一股後重新計算
                     shares_to_buy -= 1
@@ -279,6 +231,7 @@ def calculate_investment(edited_df, total_budget, fee_rate):
 
         # 確保總成本不會因為浮點數誤差導致微小超支
         if total_cost > allocated_budget:
+             # 如果仍然超支 (通常是四捨五入問題)，則強制設為分配預算 (這是一個視覺上的保險)
              total_cost = allocated_budget 
 
         total_spent += total_cost
@@ -295,81 +248,77 @@ def calculate_investment(edited_df, total_budget, fee_rate):
     return results_list, total_spent
 
 def render_budget_metrics(total_budget, total_spent):
-    """渲染預算指標卡片 (使用客製化 Markdown 樣式)"""
+    """渲染總預算指標卡片 (使用客製化 Markdown 樣式)"""
     col1, col2, col3 = st.columns(3)
     
     with col1:
         st.markdown(f"""
-        <div class='metric-card'>
+        <div class='metric-card metric-card-main'> 
             <div class='label-text'>💰 總投資預算</div>
-            <div class='value-text'>TWD {total_budget:,.0f}</div>
+            <div class='value-text-main'>TWD {total_budget:,.0f}</div>
         </div>
         """, unsafe_allow_html=True)
     
     with col2:
         st.markdown(f"""
-        <div class='metric-card'>
+        <div class='metric-card metric-card-main'>
             <div class='label-text'>📊 預估總花費</div>
-            <div class='value-text'>TWD {total_spent:,.0f}</div>
+            <div class='value-text-main'>TWD {total_spent:,.0f}</div>
         </div>
         """, unsafe_allow_html=True)
     
     with col3:
         remaining = total_budget - total_spent
-        # 根據剩餘預算決定文字顏色
-        remaining_color = TEXT_COLOR if remaining >= 0 else ACCENT_COLOR
+        # 根據剩餘預算決定文字顏色 (負值使用強調色)
+        remaining_color = ACCENT_COLOR if remaining < 0 else TEXT_COLOR
         st.markdown(f"""
-        <div class='metric-card'>
+        <div class='metric-card metric-card-main'>
             <div class='label-text'>💵 剩餘預算</div>
             <div style='color: {remaining_color}; font-size: 1.5em; font-weight: bold;'>TWD {remaining:,.0f}</div>
         </div>
         """, unsafe_allow_html=True)
 
 def render_ticker_results(results_list):
-    """渲染每檔股票的投資建議 (使用客製化 Markdown 樣式)"""
+    """渲染每檔股票的投資建議 (使用統一的指標卡片樣式)"""
     
     for item in results_list:
-        st.markdown(f"""
-        <div class='ticker-header'>
-            ✅ {item['標的代號']} ({item['比例']})
+        # 標題獨立顯示
+        st.markdown(f"<div class='ticker-group-header'>✅ {item['標的代號']} ({item['比例']})</div>", unsafe_allow_html=True)
+        
+        # 使用 4 欄佈局 (建議股數、預估成本、分配預算、當前價格)
+        col1, col2, col3, col4 = st.columns(4) 
+        
+        # Col 1: 建議股數 (最大化高亮)
+        col1.markdown(f"""
+        <div class='metric-card'>
+            <div class='label-text'>建議股數</div>
+            <div class='value-text-highlight'>{item['建議股數']}</div>
         </div>
         """, unsafe_allow_html=True)
         
-        col1, col2, col3, col4 = st.columns(4)
+        # Col 2: 預估成本 (常規顯示)
+        col2.markdown(f"""
+        <div class='metric-card'>
+            <div class='label-text'>預估成本</div>
+            <div class='value-text-regular'>TWD {item['總成本']:,.0f}</div>
+        </div>
+        """, unsafe_allow_html=True)
         
-        with col1:
-            st.markdown(f"""
-            <div class='ticker-metric'>
-                <div class='ticker-metric-label'>建議股數</div>
-                <div class='ticker-metric-value-highlight'>{item['建議股數']}</div>
-            </div>
-            """, unsafe_allow_html=True)
+        # Col 3: 分配預算 (常規顯示)
+        col3.markdown(f"""
+        <div class='metric-card'>
+            <div class='label-text'>分配預算</div>
+            <div class='value-text-regular'>TWD {item['分配金額']:,.0f}</div>
+        </div>
+        """, unsafe_allow_html=True)
         
-        with col2:
-            st.markdown(f"""
-            <div class='ticker-metric'>
-                <div class='ticker-metric-label'>預估成本</div>
-                <div class='ticker-metric-value'>TWD {item['總成本']:,.0f}</div>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col3:
-            st.markdown(f"""
-            <div class='ticker-metric'>
-                <div class='ticker-metric-label'>分配預算</div>
-                <div class='ticker-metric-value'>TWD {item['分配金額']:,.0f}</div>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col4:
-            st.markdown(f"""
-            <div class='ticker-metric'>
-                <div class='ticker-metric-label'>當前價格</div>
-                <div class='ticker-metric-value'>TWD {item['價格']:,.2f}</div>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        st.markdown("<hr style='margin: 0.6rem 0; border: none; border-top: 1px solid rgba(240, 128, 128, 0.2);'>", unsafe_allow_html=True)
+        # Col 4: 當前價格 (常規顯示)
+        col4.markdown(f"""
+        <div class='metric-card'>
+            <div class='label-text'>當前價格</div>
+            <div class='value-text-regular'>TWD {item['價格']:,.2f}</div>
+        </div>
+        """, unsafe_allow_html=True)
 
 
 # ========== 頁面主體邏輯 ==========
