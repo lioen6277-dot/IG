@@ -43,7 +43,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- 顏色定義與常數 (V15 - 泰倫風格) ---
+# --- 顏色定義與常數 (V17 - 泰倫風格) ---
 MAIN_COLOR = "#cf6955"    # 深珊瑚紅/鐵鏽紅 (核心主色，用於標題, 邊框)
 ACCENT_COLOR = "#e9967a"  # 淺珊瑚紅/鮭魚色 (強調色，用於建議股數, 剩餘資本高亮)
 TEXT_COLOR = "#ffffff"
@@ -66,7 +66,7 @@ ALLOCATION_WEIGHTS = {
 FEE_RATE_DEFAULT = 0.001425
 MIN_FEE = 1
 
-# --- 0. CSS 注入：字體微調與統一主題 (V15) ---
+# --- 0. CSS 注入：字體微調與統一主題 (V17) ---
 
 st.markdown(f"""
 <style>
@@ -114,7 +114,7 @@ h1 {{
     box-shadow: 0 0 15px rgba(233, 150, 122, 0.5); 
 }}
 
-/* -------------------- 文字與數值樣式 V15 -------------------- */
+/* -------------------- 文字與數值樣式 V17 -------------------- */
 .label-text {{
     font-size: 0.9em; 
     color: {LABEL_COLOR};
@@ -178,7 +178,7 @@ h1 {{
     border-bottom: 1px dashed rgba(233, 150, 122, 0.5);
 }}
 
-/* --- 專門針對 st.number_input 的樣式優化 V15 --- */
+/* --- 專門針對 st.number_input 的樣式優化 V17 --- */
 .stNumberInput > div > div {{
     background-color: #2e2e2e; 
     border: none;
@@ -338,14 +338,17 @@ def calculate_investment(edited_df, total_budget, fee_rate, min_fee):
     return results_list, round(total_spent, 2)
 
 def render_budget_metrics(total_budget, total_spent):
-    """渲染總預算指標卡片 (3欄，使用 sub-card-tile 樣式) - 泰倫風格"""
+    """渲染總預算指標卡片 (3欄，使用 sub-card-tile 樣式) - 泰倫風格 (V16: 移除小數點)"""
     global RESOURCE_READINESS_HEADER, TOTAL_CAPITAL_LABEL, ESTIMATED_COST_LABEL, REMAINING_FUNDS_LABEL, ACCENT_COLOR, MAIN_COLOR
     
     st.markdown(f"<div class='card-section-header'>{RESOURCE_READINESS_HEADER}</div>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns(3)
     
-    # 計算剩餘資金
+    # 計算剩餘資金 (四捨五入到整數，用於顯示)
     remaining = total_budget - total_spent
+    remaining_display = round(remaining) # 移除小數點
+    total_spent_display = round(total_spent) # 移除小數點
+
     remaining_color = ACCENT_COLOR if remaining > 0 else MAIN_COLOR
     remaining_icon = "✅" if remaining > 0 else "⚠️"
 
@@ -361,7 +364,7 @@ def render_budget_metrics(total_budget, total_spent):
         st.markdown(f"""
         <div class='sub-card-tile'>
             <div class='label-text'>{ESTIMATED_COST_LABEL}</div>
-            <div class='value-text-regular'>TWD {total_spent:,.2f}</div>
+            <div class='value-text-regular'>TWD {total_spent_display:,.0f}</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -369,12 +372,12 @@ def render_budget_metrics(total_budget, total_spent):
         st.markdown(f"""
         <div class='sub-card-tile'>
             <div class='label-text'>{remaining_icon} {REMAINING_FUNDS_LABEL}</div>
-            <div class='value-text-remaining' style='color: {remaining_color};'>TWD {remaining:,.2f}</div>
+            <div class='value-text-remaining' style='color: {remaining_color};'>TWD {remaining_display:,.0f}</div>
         </div>
         """, unsafe_allow_html=True)
 
 def render_ticker_results_and_breakdown(results_list):
-    """渲染每檔股票的關鍵投資建議 (5 欄) - 泰倫風格"""
+    """渲染每檔股票的關鍵投資建議 (5 欄) - 泰倫風格 (V17: 調整欄位順序)"""
     global DEPLOYMENT_HEADER, RECOMMENDED_UNITS_LABEL, TOTAL_DEPLOYMENT_COST_LABEL, TARGET_FUND_ALLOCATION_LABEL, UNIT_COST_LABEL, LOGISTICS_FEE_LABEL, DEPLOYMENT_TARGET_LABEL
     
     st.markdown(f"<div class='card-section-header'>{DEPLOYMENT_HEADER}</div>", unsafe_allow_html=True)
@@ -382,18 +385,25 @@ def render_ticker_results_and_breakdown(results_list):
     for item in results_list:
         st.markdown(f"<div class='ticker-group-header-sc'>{DEPLOYMENT_TARGET_LABEL.format(code=item['標的代號'], ratio=item['比例'])}</div>", unsafe_allow_html=True)
 
-        col1, col2, col3, col4, col5 = st.columns(5)
-        
-        # 定義 5 個指標的顯示配置
+        # 部署總開支 (Total Deployment Cost) 顯示回兩位小數 (因為單一項目比較精確)
+        total_cost_display = item['總成本']
+
+        # 定義 5 個指標的顯示配置 - V17 順序調整
         metrics = [
+            # 1. 建議生產單位數
             (RECOMMENDED_UNITS_LABEL, item['建議股數'], "highlight"),
-            (TOTAL_DEPLOYMENT_COST_LABEL, f"TWD {item['總成本']:,.2f}", "regular"),
-            (TARGET_FUND_ALLOCATION_LABEL, f"TWD {item['分配金額']:,.0f}", "regular"),
+            # 2. 單位造價
             (UNIT_COST_LABEL, f"TWD {item['價格']:,.2f}", "regular"),
+            # 3. 部署總開支 (單獨項目保留兩位小數)
+            (TOTAL_DEPLOYMENT_COST_LABEL, f"TWD {total_cost_display:,.2f}", "regular"), 
+            # 4. 目標資金配給 (分配金額保持整數或零位小數)
+            (TARGET_FUND_ALLOCATION_LABEL, f"TWD {item['分配金額']:,.0f}", "regular"),
+            # 5. 輸送燃料費
             (LOGISTICS_FEE_LABEL, f"TWD {item['預估手續費']:,.0f}", "regular"),
         ]
 
         # 渲染 5 欄
+        col1, col2, col3, col4, col5 = st.columns(5)
         for i, (label, value, style_type) in enumerate(metrics):
             with [col1, col2, col3, col4, col5][i]:
                 tile_class = 'highlight-tile' if style_type == 'highlight' else 'sub-card-tile'
