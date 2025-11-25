@@ -3,75 +3,166 @@ import pandas as pd
 import yfinance as yf
 from datetime import datetime
 
-PRIMARY_COLOR = "#f08080"
-ACCENT_COLOR = "#e9967a"
-LABEL_COLOR = "#a0a0a0"
+PRIMARY_COLOR = "#f08080"  # 鮭魚色
+ACCENT_COLOR = "#e9967a"   # 鮭魚色（用於建議股數）
+TEXT_COLOR = "#ffffff"      # 白色
+LABEL_COLOR = "#d0d0d0"     # 淡灰白
 
 st.markdown(f"""
 <style>
+* {{
+    font-size: 1.3rem !important;
+}}
+
 .stApp {{
-    font-size: 1.2rem;
+    font-size: 1.3rem;
 }}
-h1, h2, h3 {{
-    font-size: 1.5em !important;
+
+h1, h2, h3, h4, h5, h6 {{
+    font-size: 1.8em !important;
     color: {PRIMARY_COLOR} !important;
+    font-weight: bold !important;
 }}
+
+p, div, span {{
+    color: {TEXT_COLOR} !important;
+    font-size: 1.3em !important;
+}}
+
 div[data-testid="stMetricValue"] {{
-    color: {ACCENT_COLOR} !important;
-    font-size: 1.8rem !important;
+    color: {TEXT_COLOR} !important;
+    font-size: 2.0rem !important;
+    font-weight: bold !important;
 }}
+
+div[data-testid="stMetricLabel"] {{
+    color: {LABEL_COLOR} !important;
+    font-size: 1.2em !important;
+}}
+
 .st-emotion-cache-1dpn6dr {{
     color: {PRIMARY_COLOR} !important;
+    font-size: 1.5em !important;
 }}
+
 .st-emotion-cache-1c19gh9 {{
     background-color: {ACCENT_COLOR} !important;
     color: white !important;
 }}
+
 div[data-testid="stDataFrame"] {{
-    font-size: 1.1rem;
+    font-size: 1.2rem !important;
+}}
+
+div[data-testid="stDataFrame"] th {{
+    font-size: 1.3em !important;
+    color: {TEXT_COLOR} !important;
+}}
+
+div[data-testid="stDataFrame"] td {{
+    font-size: 1.25em !important;
+    color: {TEXT_COLOR} !important;
 }}
 
 /* 優化卡片樣式 */
 .metric-card {{
     background: rgba(255, 255, 255, 0.05);
     border-radius: 8px;
-    padding: 1.2rem 1rem;
-    border-left: 3px solid {PRIMARY_COLOR};
+    padding: 1.5rem 1.2rem;
+    border-left: 4px solid {PRIMARY_COLOR};
     margin-bottom: 1rem;
 }}
 
 .label-text {{
-    font-size: 0.95em;
+    font-size: 1.15em;
     color: {LABEL_COLOR};
     font-weight: 500;
-    margin-bottom: 0.3rem;
+    margin-bottom: 0.5rem;
 }}
 
 .value-text {{
+    color: {TEXT_COLOR};
+    font-size: 2.0em;
+    font-weight: bold;
+}}
+
+.value-text-highlight {{
     color: {ACCENT_COLOR};
-    font-size: 1.8em;
+    font-size: 2.2em;
     font-weight: bold;
 }}
 
 .ticker-header {{
     color: {PRIMARY_COLOR};
     font-weight: bold;
-    font-size: 1.1em;
-    padding: 0.8rem 0;
-    border-bottom: 1px solid rgba(240, 128, 128, 0.3);
-    margin-bottom: 0.8rem;
-}}
-
-.ticker-metrics {{
-    display: flex;
-    gap: 1rem;
-    flex-wrap: wrap;
+    font-size: 1.35em;
+    padding: 1rem 0;
+    border-bottom: 2px solid rgba(240, 128, 128, 0.3);
+    margin-bottom: 1rem;
 }}
 
 .ticker-metric {{
     flex: 1;
-    min-width: 150px;
+    min-width: 160px;
 }}
+
+.ticker-metric-label {{
+    font-size: 1.1em;
+    color: {LABEL_COLOR};
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+}}
+
+.ticker-metric-value {{
+    font-size: 2.0em;
+    color: {TEXT_COLOR};
+    font-weight: bold;
+}}
+
+.ticker-metric-value-highlight {{
+    font-size: 2.2em;
+    color: {ACCENT_COLOR};
+    font-weight: bold;
+}}
+
+/* Data Editor 樣式 */
+.stDataEditor {{
+    font-size: 1.3em !important;
+}}
+
+.st-emotion-cache-16idsys p {{
+    font-size: 1.25em !important;
+    color: {TEXT_COLOR} !important;
+}}
+
+/* Caption 和 Markdown 文本 */
+.stCaption {{
+    font-size: 1.2em !important;
+    color: {LABEL_COLOR} !important;
+}}
+
+/* Info box */
+.stAlert {{
+    font-size: 1.25em !important;
+}}
+
+/* Subheader */
+h4, h5 {{
+    font-size: 1.6em !important;
+    color: {PRIMARY_COLOR} !important;
+}}
+
+/* Button text */
+button {{
+    font-size: 1.25em !important;
+}}
+
+/* Input text */
+input, select {{
+    font-size: 1.25em !important;
+    color: {TEXT_COLOR} !important;
+}}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -197,32 +288,32 @@ def render_ticker_results(results_list):
         with col1:
             st.markdown(f"""
             <div class='ticker-metric'>
-                <div class='label-text'>建議股數</div>
-                <div class='value-text'>{item['建議股數']}</div>
+                <div class='ticker-metric-label'>建議股數</div>
+                <div class='ticker-metric-value-highlight'>{item['建議股數']}</div>
             </div>
             """, unsafe_allow_html=True)
         
         with col2:
             st.markdown(f"""
             <div class='ticker-metric'>
-                <div class='label-text'>預估成本</div>
-                <div class='value-text'>TWD {item['總成本']:,.0f}</div>
+                <div class='ticker-metric-label'>預估成本</div>
+                <div class='ticker-metric-value'>TWD {item['總成本']:,.0f}</div>
             </div>
             """, unsafe_allow_html=True)
         
         with col3:
             st.markdown(f"""
             <div class='ticker-metric'>
-                <div class='label-text'>分配預算</div>
-                <div class='value-text'>TWD {item['分配金額']:,.0f}</div>
+                <div class='ticker-metric-label'>分配預算</div>
+                <div class='ticker-metric-value'>TWD {item['分配金額']:,.0f}</div>
             </div>
             """, unsafe_allow_html=True)
         
         with col4:
             st.markdown(f"""
             <div class='ticker-metric'>
-                <div class='label-text'>當前價格</div>
-                <div class='value-text'>TWD {item['價格']:,.2f}</div>
+                <div class='ticker-metric-label'>當前價格</div>
+                <div class='ticker-metric-value'>TWD {item['價格']:,.2f}</div>
             </div>
             """, unsafe_allow_html=True)
         
