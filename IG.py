@@ -4,20 +4,52 @@ import yfinance as yf
 from datetime import datetime
 import time
 
+# --- 星海爭霸 - 泰倫風格命名 ---
+TACC_TITLE_TEXT = "泰倫戰術指揮中心 (T.A.C.C.)"
+
+# 資金/預算類
+TOTAL_CAPITAL_LABEL = "💰 總戰備資金 (Total War Chest)"
+ESTIMATED_COST_LABEL = "📊 預計軍備開支 (Estimated Expenditure)"
+REMAINING_FUNDS_LABEL = "現存資金餘額 (Remaining Funds)"
+RESOURCE_READINESS_HEADER = "💰 資源戰備總覽 (Resource Readiness)"
+BUDGET_SIDEBAR_HEADER = "⚙️ 資源調度指揮站"
+BUDGET_INPUT_LABEL = "每月行動預算 (TWD)"
+FEE_RATE_INPUT_LABEL = "輸送燃料費率 (0.xxxx)"
+MIN_FEE_CAPTION = "💡 最低燃料費為 **{MIN_FEE}** 元 / 筆。請使用 **小數** 格式輸入。"
+
+# 部署/結果類
+DEPLOYMENT_HEADER = "✨ 軍事單位部署指令 (Unit Deployment Order)"
+RECOMMENDED_UNITS_LABEL = "建議生產單位數 (Recommended Units)"
+TOTAL_DEPLOYMENT_COST_LABEL = "部署總開支 (Total Deployment Cost)"
+TARGET_FUND_ALLOCATION_LABEL = "目標資金配給 (Target Fund Allocation)"
+UNIT_COST_LABEL = "單位造價 (Unit Cost)"
+LOGISTICS_FEE_LABEL = "輸送燃料費 (Logistics Fee)"
+DEPLOYMENT_TARGET_LABEL = "🛡️ 部署目標: {code} ({ratio})"
+DEPLOYMENT_PRINCIPLE_FOOTER = "📌 T.A.C.C. 部署原則：優先確保買入單位數最大化，且總成本 **嚴格不超過** 分配預算。交易燃料費最低 {MIN_FEE} 元計算。"
+
+# 設定/數據類
+CALIBRATION_HEADER = "⚙️ 戰術數據校準 (Calibration Data)"
+TARGET_DESIGNATION_LABEL = "🎯 戰場目標代號"
+STRATEGIC_RATIO_LABEL = "戰略配置比例"
+DEFAULT_UNIT_COST_LABEL = "預設造價單價 (TWD)"
+DATA_SYNC_SPINNER = '正在從聯邦情報網絡獲取最新戰術報價...'
+DATA_SYNC_INFO = "🌐 數據鏈同步時間：{fetch_time} (戰術報價資訊每 60 秒自動刷新)"
+DATA_FETCH_WARNING = "⚠️ 警告：戰術報價數據鏈中斷，所有價格已設為 0。請手動輸入造價以進行準確計算！"
+
+
 st.set_page_config(
-    page_title="泰倫戰術資本部署介面 (T.C.D.I.)",
+    page_title=TACC_TITLE_TEXT,
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# --- 顏色定義與常數 (V13 - 設定卡片化與字體優化) ---
+# --- 顏色定義與常數 (V15 - 泰倫風格) ---
 MAIN_COLOR = "#cf6955"    # 深珊瑚紅/鐵鏽紅 (核心主色，用於標題, 邊框)
 ACCENT_COLOR = "#e9967a"  # 淺珊瑚紅/鮭魚色 (強調色，用於建議股數, 剩餘資本高亮)
 TEXT_COLOR = "#ffffff"
 LABEL_COLOR = "#b0b0b0"
 DARK_BG = "#1a1a1a"
 TILE_BG = "#1e2126" # 次級卡片/磁磚背景色
-TCDI_TITLE_TEXT = "泰倫戰術資本部署介面 (T.C.D.I.)"
 
 # 投資標的與對應的 Yahoo Finance 代號
 TICKER_MAP = {
@@ -34,7 +66,7 @@ ALLOCATION_WEIGHTS = {
 FEE_RATE_DEFAULT = 0.001425
 MIN_FEE = 1
 
-# --- 0. CSS 注入：字體加大與統一主題 (V13) ---
+# --- 0. CSS 注入：字體微調與統一主題 (V15) ---
 
 st.markdown(f"""
 <style>
@@ -55,12 +87,12 @@ h1 {{
     padding-top: 1rem; 
 }}
 
-/* -------------------- 次級卡片 (Metric Tile) 樣式 V13 -------------------- */
+/* -------------------- 次級卡片 (Metric Tile) 樣式 -------------------- */
 /* 用於所有數據指標 (總覽與細項) 的標準背景磁磚 */
 .sub-card-tile {{
     background: {TILE_BG}; 
     border-radius: 8px;
-    padding: 1.2rem; /* 增加內邊距以適應大字體 */
+    padding: 1.2rem; 
     height: 100%;
     margin-bottom: 1rem; 
     transition: all 0.2s ease-in-out;
@@ -72,7 +104,7 @@ h1 {{
 .highlight-tile {{
     background: {TILE_BG}; 
     border-radius: 8px;
-    padding: 1.2rem; /* 增加內邊距以適應大字體 */
+    padding: 1.2rem; 
     height: 100%;
     margin-bottom: 1rem;
     
@@ -82,9 +114,9 @@ h1 {{
     box-shadow: 0 0 15px rgba(233, 150, 122, 0.5); 
 }}
 
-/* -------------------- 文字與數值樣式 V13 - 字體調整 -------------------- */
+/* -------------------- 文字與數值樣式 V15 -------------------- */
 .label-text {{
-    font-size: 0.9em; /* 標籤字體略微加大 */
+    font-size: 0.9em; 
     color: {LABEL_COLOR};
     font-weight: 500;
     margin-bottom: 0.5rem;
@@ -95,30 +127,30 @@ h1 {{
 /* 標準數值：用於總覽和非重點的細項 */
 .value-text-regular {{
     color: {TEXT_COLOR};
-    font-size: 1.8em; 
+    font-size: 1.7em; 
     font-weight: bold;
 }}
 
 /* 強調數值：用於建議股數 */
 .value-text-highlight {{
     color: {ACCENT_COLOR}; 
-    font-size: 2.5em; 
+    font-size: 2.3em; 
     font-weight: 900;
     text-shadow: 0 0 8px rgba(233, 150, 122, 0.5);
     line-height: 1; 
 }}
 
-/* 剩餘彈藥數值 (使用 regular 大小，但調整顏色) */
+/* 剩餘彈藥數值 */
 .value-text-remaining {{
-    font-size: 1.8em; 
+    font-size: 1.7em; 
     font-weight: bold;
     line-height: 1.2;
 }}
 
-/* -------------------- 戰術參數設定卡片內數值 (V13 新增) -------------------- */
+/* -------------------- 戰術參數設定卡片內數值 -------------------- */
 .value-text-setting {{
     color: {TEXT_COLOR};
-    font-size: 1.5em; /* 略小於 regular metrics (1.8em)，保持層次感 */
+    font-size: 1.4em; 
     font-weight: 700;
     margin-top: 0.25rem;
 }}
@@ -135,7 +167,7 @@ h1 {{
     text-transform: uppercase;
 }}
 
-/* 標的組標頭 (Accent Color) - 已被新的卡片結構取代，保留樣式備用 */
+/* 標的組標頭 (Accent Color) */
 .ticker-group-header-sc {{
     color: {ACCENT_COLOR};
     font-weight: 600;
@@ -146,7 +178,7 @@ h1 {{
     border-bottom: 1px dashed rgba(233, 150, 122, 0.5);
 }}
 
-/* --- 專門針對 st.number_input 的樣式優化 V13 --- */
+/* --- 專門針對 st.number_input 的樣式優化 V15 --- */
 .stNumberInput > div > div {{
     background-color: #2e2e2e; 
     border: none;
@@ -159,10 +191,11 @@ h1 {{
     border: 1px solid {ACCENT_COLOR} !important;
     box-shadow: 0 0 7px rgba(233, 150, 122, 0.7); 
 }}
+/* 輸入欄位字體大小 */
 .stNumberInput input {{
     color: {ACCENT_COLOR} !important;
     font-weight: bold;
-    font-size: 1.4em; /* V13: 明確設定輸入欄位字體大小 */
+    font-size: 1.3em; 
 }}
 
 /* -------------------- 其他微調 -------------------- */
@@ -248,6 +281,7 @@ def calculate_investment(edited_df, total_budget, fee_rate, min_fee):
     total_spent = 0.0
 
     for _, row in edited_df.iterrows():
+        # 變量名稱不變，但代表的含義已轉為星海風格
         code = row["標的代號"]
         weight = row["設定比例"]
         price = row["當前價格 (自動獲取)"] 
@@ -304,11 +338,13 @@ def calculate_investment(edited_df, total_budget, fee_rate, min_fee):
     return results_list, round(total_spent, 2)
 
 def render_budget_metrics(total_budget, total_spent):
-    """渲染總預算指標卡片 (3欄，使用 sub-card-tile 樣式)"""
-    st.markdown("<div class='card-section-header'>💰 資本部署總覽 (Budget Overview)</div>", unsafe_allow_html=True)
+    """渲染總預算指標卡片 (3欄，使用 sub-card-tile 樣式) - 泰倫風格"""
+    global RESOURCE_READINESS_HEADER, TOTAL_CAPITAL_LABEL, ESTIMATED_COST_LABEL, REMAINING_FUNDS_LABEL, ACCENT_COLOR, MAIN_COLOR
+    
+    st.markdown(f"<div class='card-section-header'>{RESOURCE_READINESS_HEADER}</div>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns(3)
     
-    # 計算剩餘資本
+    # 計算剩餘資金
     remaining = total_budget - total_spent
     remaining_color = ACCENT_COLOR if remaining > 0 else MAIN_COLOR
     remaining_icon = "✅" if remaining > 0 else "⚠️"
@@ -316,7 +352,7 @@ def render_budget_metrics(total_budget, total_spent):
     with col1:
         st.markdown(f"""
         <div class='sub-card-tile'>
-            <div class='label-text'>💰 總分配資本 (Total Capital)</div>
+            <div class='label-text'>{TOTAL_CAPITAL_LABEL}</div>
             <div class='value-text-regular'>TWD {total_budget:,.0f}</div>
         </div>
         """, unsafe_allow_html=True)
@@ -324,7 +360,7 @@ def render_budget_metrics(total_budget, total_spent):
     with col2:
         st.markdown(f"""
         <div class='sub-card-tile'>
-            <div class='label-text'>📊 預估部署成本 (Estimated Cost)</div>
+            <div class='label-text'>{ESTIMATED_COST_LABEL}</div>
             <div class='value-text-regular'>TWD {total_spent:,.2f}</div>
         </div>
         """, unsafe_allow_html=True)
@@ -332,27 +368,29 @@ def render_budget_metrics(total_budget, total_spent):
     with col3:
         st.markdown(f"""
         <div class='sub-card-tile'>
-            <div class='label-text'>{remaining_icon} 剩餘彈藥 (Remaining Budget)</div>
+            <div class='label-text'>{remaining_icon} {REMAINING_FUNDS_LABEL}</div>
             <div class='value-text-remaining' style='color: {remaining_color};'>TWD {remaining:,.2f}</div>
         </div>
         """, unsafe_allow_html=True)
 
 def render_ticker_results_and_breakdown(results_list):
-    """渲染每檔股票的關鍵投資建議 (5 欄，使用 sub-card-tile/highlight-tile 樣式)"""
-    st.markdown("<div class='card-section-header'>✨ 戰術部署建議 (Purchase Recommendation)</div>", unsafe_allow_html=True)
+    """渲染每檔股票的關鍵投資建議 (5 欄) - 泰倫風格"""
+    global DEPLOYMENT_HEADER, RECOMMENDED_UNITS_LABEL, TOTAL_DEPLOYMENT_COST_LABEL, TARGET_FUND_ALLOCATION_LABEL, UNIT_COST_LABEL, LOGISTICS_FEE_LABEL, DEPLOYMENT_TARGET_LABEL
+    
+    st.markdown(f"<div class='card-section-header'>{DEPLOYMENT_HEADER}</div>", unsafe_allow_html=True)
 
     for item in results_list:
-        st.markdown(f"<div class='ticker-group-header-sc'>🛡️ 部署目標: {item['標的代號']} ({item['比例']})</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='ticker-group-header-sc'>{DEPLOYMENT_TARGET_LABEL.format(code=item['標的代號'], ratio=item['比例'])}</div>", unsafe_allow_html=True)
 
         col1, col2, col3, col4, col5 = st.columns(5)
         
         # 定義 5 個指標的顯示配置
         metrics = [
-            ("建議戰術股數 (Shares)", item['建議股數'], "highlight"),
-            ("總部署成本 (Cost)", f"TWD {item['總成本']:,.2f}", "regular"),
-            ("目標資本 (Target Capital)", f"TWD {item['分配金額']:,.0f}", "regular"),
-            ("單價 (Unit Price)", f"TWD {item['價格']:,.2f}", "regular"),
-            ("交易燃料費 (Broker Fee)", f"TWD {item['預估手續費']:,.0f}", "regular"),
+            (RECOMMENDED_UNITS_LABEL, item['建議股數'], "highlight"),
+            (TOTAL_DEPLOYMENT_COST_LABEL, f"TWD {item['總成本']:,.2f}", "regular"),
+            (TARGET_FUND_ALLOCATION_LABEL, f"TWD {item['分配金額']:,.0f}", "regular"),
+            (UNIT_COST_LABEL, f"TWD {item['價格']:,.2f}", "regular"),
+            (LOGISTICS_FEE_LABEL, f"TWD {item['預估手續費']:,.0f}", "regular"),
         ]
 
         # 渲染 5 欄
@@ -371,43 +409,43 @@ def render_ticker_results_and_breakdown(results_list):
 
 def render_ticker_settings(ticker_map, allocation_weights, prices_ready=True):
     """
-    渲染可編輯的價格與比例面板，每個標的為一個獨立的卡片 (V13)。
-    將比例和可編輯價格放入一個 sub-card-tile 內。
+    渲染可編輯的造價與比例面板 (卡片化) - 泰倫風格。
     """
-    st.markdown("<div class='card-section-header'>⚙️ 戰術參數設定 (價格與比例)</div>", unsafe_allow_html=True)
+    global CALIBRATION_HEADER, DATA_FETCH_WARNING, TARGET_DESIGNATION_LABEL, STRATEGIC_RATIO_LABEL, DEFAULT_UNIT_COST_LABEL, MAIN_COLOR
+    
+    st.markdown(f"<div class='card-section-header'>{CALIBRATION_HEADER}</div>", unsafe_allow_html=True)
 
     if not prices_ready:
-        st.warning("⚠️ 警告：價格數據獲取失敗，所有價格已設為 0。請手動輸入價格以進行準確計算！")
+        st.warning(DATA_FETCH_WARNING)
 
     for code in ticker_map.keys():
         weight = allocation_weights[code]
         price_value = st.session_state.editable_prices.get(code, 0.01)
 
-        # Start of the card structure (using sub-card-tile class)
+        # Start of the card structure
         st.markdown("<div class='sub-card-tile'>", unsafe_allow_html=True)
         
         # 使用 columns inside the card for layout
         col_code, col_weight, col_price = st.columns([1.5, 1, 2.5])
 
         with col_code:
-            # Ticker Code (Label + Value) - 使用 value-text-setting
+            # Ticker Code (Label + Value)
             st.markdown(f"""
-                <div class='label-text' style='color: {MAIN_COLOR}; margin-bottom: 0;'>🎯 目標標的代號</div>
+                <div class='label-text' style='color: {MAIN_COLOR}; margin-bottom: 0;'>{TARGET_DESIGNATION_LABEL}</div>
                 <div class='value-text-setting' style='margin-top: 0.25rem;'>{code}</div>
             """, unsafe_allow_html=True)
 
         with col_weight:
-            # Weight (Fixed Value) - 使用 value-text-setting
+            # Weight (Fixed Value)
             st.markdown(f"""
-                <div class='label-text' style='margin-bottom: 0;'>部署比例</div>
+                <div class='label-text' style='margin-bottom: 0;'>{STRATEGIC_RATIO_LABEL}</div>
                 <div class='value-text-setting' style='margin-top: 0.25rem;'>{weight*100:.0f}%</div>
             """, unsafe_allow_html=True)
 
         with col_price:
             # Price Input (Interactive) - 標籤單獨顯示
-            st.markdown("<div class='label-text' style='margin-bottom: 0;'>部署單價 (TWD)</div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='label-text' style='margin-bottom: 0;'>{DEFAULT_UNIT_COST_LABEL}</div>", unsafe_allow_html=True)
 
-            # st.number_input's value text is styled via custom CSS .stNumberInput input
             new_price = st.number_input(
                 label=f"Price_Input_{code}",
                 min_value=0.0001,
@@ -430,16 +468,16 @@ def check_allocation_sum(weights):
 
 # ========== 頁面主體邏輯 ==========
 
-st.title(TCDI_TITLE_TEXT)
+st.title(TACC_TITLE_TEXT)
 
 # 獲取價格
 prices_ready = True
-with st.spinner('正在從 Terran 交易所獲取最新戰術報價 (Yahoo Finance)...'):
+with st.spinner(DATA_SYNC_SPINNER):
     current_prices, fetch_time = get_current_prices(TICKER_MAP)
     if all(p == 0.0 for p in current_prices.values()):
         prices_ready = False
 
-# --- NEW: 初始化 Session State 以管理可編輯價格 ---
+# --- 初始化 Session State 以管理可編輯造價 ---
 if 'editable_prices' not in st.session_state:
     st.session_state.editable_prices = current_prices.copy()
 else:
@@ -449,24 +487,24 @@ else:
              st.session_state.editable_prices[code] = price
 
 
-# -------------------- Sidebar 參數設定 --------------------
-st.sidebar.header("⚙️ 資源調度配置")
+# -------------------- Sidebar 參數設定 - 泰倫風格 --------------------
+st.sidebar.header(BUDGET_SIDEBAR_HEADER)
 total_budget = st.sidebar.number_input(
-    "每月資本調度預算 (TWD)",
+    BUDGET_INPUT_LABEL,
     min_value=100,
     value=30000,
     step=1000,
     format="%d"
 )
 fee_rate = st.sidebar.number_input(
-    "交易燃料費率 (0.xxxx)",
+    FEE_RATE_INPUT_LABEL,
     min_value=0.000001,
     max_value=0.01,
     value=FEE_RATE_DEFAULT,
     step=0.000001,
     format="%.6f"
 )
-st.sidebar.caption(f"💡 最低燃料費為 **{MIN_FEE}** 元 / 筆。請使用 **小數** 格式輸入。")
+st.sidebar.caption(MIN_FEE_CAPTION.format(MIN_FEE=MIN_FEE))
 
 # 比例總和檢查
 if not check_allocation_sum(ALLOCATION_WEIGHTS):
@@ -476,9 +514,9 @@ else:
     safe_weights = ALLOCATION_WEIGHTS
 
 # 1. 報價資訊
-st.info(f"🌐 數據同步時間：{fetch_time.strftime('%Y-%m-%d %H:%M:%S')} (戰術報價資料每 60 秒自動更新一次)")
+st.info(DATA_SYNC_INFO.format(fetch_time=fetch_time.strftime('%Y-%m-%d %H:%M:%S')))
 
-# 2. 價格與比例輸入 (Setting) - 使用新的卡片式渲染函數
+# 2. 價格與比例輸入 (Setting)
 render_ticker_settings(TICKER_MAP, safe_weights, prices_ready)
 
 # ========== 構造 DataFrame for Calculation ==========
@@ -499,4 +537,4 @@ render_budget_metrics(total_budget, total_spent)
 render_ticker_results_and_breakdown(results_list)
 
 # 5. 邏輯說明
-st.markdown(f"<div style='margin-top: 1.5rem; color: {LABEL_COLOR}; font-size: 0.9em; padding-left: 1rem;'>📌 T.C.D.I. 部署原則：優先確保買入股數最大化，且總成本 **嚴格不超過** 分配預算。交易燃料費最低 {MIN_FEE} 元計算。</div>", unsafe_allow_html=True)
+st.markdown(f"<div style='margin-top: 1.5rem; color: {LABEL_COLOR}; font-size: 0.9em; padding-left: 1rem;'>{DEPLOYMENT_PRINCIPLE_FOOTER.format(MIN_FEE=MIN_FEE)}</div>", unsafe_allow_html=True)
