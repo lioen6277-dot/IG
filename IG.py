@@ -10,39 +10,46 @@ LABEL_COLOR = "#d0d0d0"     # 淡灰白
 
 st.markdown(f"""
 <style>
-* {{
-    font-size: 1.3rem !important;
-}}
-
 .stApp {{
-    font-size: 1.3rem;
+    font-size: 1.05rem;
 }}
 
-h1, h2, h3, h4, h5, h6 {{
-    font-size: 1.8em !important;
+h1 {{
+    font-size: 2.0em !important;
     color: {PRIMARY_COLOR} !important;
     font-weight: bold !important;
 }}
 
+h2, h3, h4 {{
+    font-size: 1.5em !important;
+    color: {PRIMARY_COLOR} !important;
+    font-weight: bold !important;
+}}
+
+h5, h6 {{
+    font-size: 1.2em !important;
+    color: {PRIMARY_COLOR} !important;
+}}
+
 p, div, span {{
     color: {TEXT_COLOR} !important;
-    font-size: 1.3em !important;
+    font-size: 1.05em !important;
 }}
 
 div[data-testid="stMetricValue"] {{
     color: {TEXT_COLOR} !important;
-    font-size: 2.0rem !important;
+    font-size: 1.6rem !important;
     font-weight: bold !important;
 }}
 
 div[data-testid="stMetricLabel"] {{
     color: {LABEL_COLOR} !important;
-    font-size: 1.2em !important;
+    font-size: 1.0em !important;
 }}
 
 .st-emotion-cache-1dpn6dr {{
     color: {PRIMARY_COLOR} !important;
-    font-size: 1.5em !important;
+    font-size: 1.2em !important;
 }}
 
 .st-emotion-cache-1c19gh9 {{
@@ -51,16 +58,16 @@ div[data-testid="stMetricLabel"] {{
 }}
 
 div[data-testid="stDataFrame"] {{
-    font-size: 1.2rem !important;
+    font-size: 1.05rem !important;
 }}
 
 div[data-testid="stDataFrame"] th {{
-    font-size: 1.3em !important;
+    font-size: 1.1em !important;
     color: {TEXT_COLOR} !important;
 }}
 
 div[data-testid="stDataFrame"] td {{
-    font-size: 1.25em !important;
+    font-size: 1.05em !important;
     color: {TEXT_COLOR} !important;
 }}
 
@@ -74,7 +81,7 @@ div[data-testid="stDataFrame"] td {{
 }}
 
 .label-text {{
-    font-size: 1.15em;
+    font-size: 1.0em;
     color: {LABEL_COLOR};
     font-weight: 500;
     margin-bottom: 0.5rem;
@@ -82,20 +89,20 @@ div[data-testid="stDataFrame"] td {{
 
 .value-text {{
     color: {TEXT_COLOR};
-    font-size: 2.0em;
+    font-size: 1.6em;
     font-weight: bold;
 }}
 
 .value-text-highlight {{
     color: {ACCENT_COLOR};
-    font-size: 2.2em;
+    font-size: 1.6em;
     font-weight: bold;
 }}
 
 .ticker-header {{
     color: {PRIMARY_COLOR};
     font-weight: bold;
-    font-size: 1.35em;
+    font-size: 1.2em;
     padding: 1rem 0;
     border-bottom: 2px solid rgba(240, 128, 128, 0.3);
     margin-bottom: 1rem;
@@ -107,59 +114,59 @@ div[data-testid="stDataFrame"] td {{
 }}
 
 .ticker-metric-label {{
-    font-size: 1.1em;
+    font-size: 0.95em;
     color: {LABEL_COLOR};
     font-weight: 500;
     margin-bottom: 0.5rem;
 }}
 
 .ticker-metric-value {{
-    font-size: 2.0em;
+    font-size: 1.5em;
     color: {TEXT_COLOR};
     font-weight: bold;
 }}
 
 .ticker-metric-value-highlight {{
-    font-size: 2.2em;
+    font-size: 1.5em;
     color: {ACCENT_COLOR};
     font-weight: bold;
 }}
 
 /* Data Editor 樣式 */
 .stDataEditor {{
-    font-size: 1.3em !important;
+    font-size: 1.05em !important;
 }}
 
 .st-emotion-cache-16idsys p {{
-    font-size: 1.25em !important;
+    font-size: 1.05em !important;
     color: {TEXT_COLOR} !important;
 }}
 
 /* Caption 和 Markdown 文本 */
 .stCaption {{
-    font-size: 1.2em !important;
+    font-size: 1.0em !important;
     color: {LABEL_COLOR} !important;
 }}
 
 /* Info box */
 .stAlert {{
-    font-size: 1.25em !important;
+    font-size: 1.05em !important;
 }}
 
 /* Subheader */
 h4, h5 {{
-    font-size: 1.6em !important;
+    font-size: 1.3em !important;
     color: {PRIMARY_COLOR} !important;
 }}
 
 /* Button text */
 button {{
-    font-size: 1.25em !important;
+    font-size: 1.05em !important;
 }}
 
 /* Input text */
 input, select {{
-    font-size: 1.25em !important;
+    font-size: 1.05em !important;
     color: {TEXT_COLOR} !important;
 }}
 
