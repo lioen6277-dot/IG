@@ -1,7 +1,2 @@
 streamlit
-yfinance
 pandas
-numpy
-plotly
-ta
-Pillow
