@@ -14,7 +14,7 @@ REMAINING_FUNDS_LABEL = "現存資金餘額 (Remaining Funds)"
 RESOURCE_READINESS_HEADER = "💰 資源戰備總覽 (Resource Readiness)"
 BUDGET_SIDEBAR_HEADER = "⚙️ 資源調度指揮站"
 BUDGET_INPUT_LABEL = "每月行動預算 (TWD)"
-FEE_RATE_INPUT_LABEL = "輸送燃料費率 (0.xxxx)"
+FEE_RATE_INPUT_LABEL = "輸送燃料費率 (0.xxxxxx)" # V18: 修正標籤以符合 6 位小數精度
 MIN_FEE_CAPTION = "💡 最低燃料費為 **{MIN_FEE}** 元 / 筆。請使用 **小數** 格式輸入。"
 
 # 部署/結果類
@@ -43,7 +43,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- 顏色定義與常數 (V17 - 泰倫風格) ---
+# --- 顏色定義與常數 (V19 - 泰倫風格) ---
 MAIN_COLOR = "#cf6955"    # 深珊瑚紅/鐵鏽紅 (核心主色，用於標題, 邊框)
 ACCENT_COLOR = "#e9967a"  # 淺珊瑚紅/鮭魚色 (強調色，用於建議股數, 剩餘資本高亮)
 TEXT_COLOR = "#ffffff"
@@ -66,7 +66,7 @@ ALLOCATION_WEIGHTS = {
 FEE_RATE_DEFAULT = 0.001425
 MIN_FEE = 1
 
-# --- 0. CSS 注入：字體微調與統一主題 (V17) ---
+# --- 0. CSS 注入：字體微調與統一主題 (V19) ---
 
 st.markdown(f"""
 <style>
@@ -114,7 +114,7 @@ h1 {{
     box-shadow: 0 0 15px rgba(233, 150, 122, 0.5); 
 }}
 
-/* -------------------- 文字與數值樣式 V17 -------------------- */
+/* -------------------- 文字與數值樣式 V19 -------------------- */
 .label-text {{
     font-size: 0.9em; 
     color: {LABEL_COLOR};
@@ -178,7 +178,8 @@ h1 {{
     border-bottom: 1px dashed rgba(233, 150, 122, 0.5);
 }}
 
-/* --- 專門針對 st.number_input 的樣式優化 V17 --- */
+/* --- 專門針對 st.number_input 的樣式優化 V19 --- */
+/* 輸入框背景與邊框 */
 .stNumberInput > div > div {{
     background-color: #2e2e2e; 
     border: none;
@@ -186,12 +187,13 @@ h1 {{
     padding: 0.5rem;
     transition: all 0.2s ease;
 }}
+/* 輸入框聚焦時的強調效果 */
 .stNumberInput > div > div:focus-within {{
     background-color: #242424; 
     border: 1px solid {ACCENT_COLOR} !important;
     box-shadow: 0 0 7px rgba(233, 150, 122, 0.7); 
 }}
-/* 輸入欄位字體大小 */
+/* 輸入欄位字體大小與顏色 */
 .stNumberInput input {{
     color: {ACCENT_COLOR} !important;
     font-weight: bold;
@@ -199,6 +201,7 @@ h1 {{
 }}
 
 /* -------------------- 其他微調 -------------------- */
+/* 警示/提示訊息框樣式 */
 div[role="alert"] {{
     background-color: rgba(207, 105, 85, 0.15) !important;
     border-left: 5px solid {MAIN_COLOR} !important;
@@ -233,10 +236,11 @@ div[role="alert"] {{
 """, unsafe_allow_html=True)
 
 
-# --- 2. 核心函式 (無變動) ---
+# --- 2. 核心函式 ---
 
 @st.cache_data(ttl=60)
 def get_current_prices(ticker_map):
+    """從 Yahoo Finance 獲取最新的即時股價，每 60 秒緩存一次。"""
     prices = {}
     fetch_time = datetime.now()
     tickers = list(ticker_map.values())
@@ -245,7 +249,7 @@ def get_current_prices(ticker_map):
         prices[code] = 0.0
 
     try:
-        # 下載數據邏輯...
+        # 嘗試下載所有標的數據
         data = yf.download(tickers, period="1d", interval="1m", progress=False, timeout=8)
 
         if data.empty:
@@ -257,13 +261,15 @@ def get_current_prices(ticker_map):
                 close_data = data['Close']
 
                 if isinstance(close_data, pd.DataFrame):
+                    # 處理多檔標的 (多列)
                     if ticker in close_data.columns:
                         price_series = close_data[ticker]
                         valid_prices = price_series.dropna()
                         if not valid_prices.empty:
                             prices[code] = round(valid_prices.iloc[-1], 2)
                 elif isinstance(close_data, pd.Series):
-                    if ticker == tickers[0] and len(tickers) == 1: # 處理單一標的下載
+                    # 處理單一標的 (單列)
+                    if ticker == tickers[0] and len(tickers) == 1: 
                          valid_prices = close_data.dropna()
                          if not valid_prices.empty:
                              prices[code] = round(valid_prices.iloc[-1], 2)
@@ -272,16 +278,19 @@ def get_current_prices(ticker_map):
                 prices[code] = 0.0
 
     except Exception:
+        # 下載失敗時，價格設為 0.0
         pass
 
     return prices, fetch_time
 
 def calculate_investment(edited_df, total_budget, fee_rate, min_fee):
+    """
+    核心計算邏輯：在給定預算下，計算每檔標的最多可購買的股數，並確保總成本不超支。
+    """
     results_list = []
     total_spent = 0.0
 
     for _, row in edited_df.iterrows():
-        # 變量名稱不變，但代表的含義已轉為星海風格
         code = row["標的代號"]
         weight = row["設定比例"]
         price = row["當前價格 (自動獲取)"] 
@@ -292,6 +301,7 @@ def calculate_investment(edited_df, total_budget, fee_rate, min_fee):
         total_cost = 0.0
 
         if price <= 0.0001 or allocated_budget <= 0:
+            # 價格或預算為零時跳過計算
             results_list.append({
                 "標的代號": code,
                 "比例": f"{weight*100:.0f}%",
@@ -306,6 +316,7 @@ def calculate_investment(edited_df, total_budget, fee_rate, min_fee):
         max_shares_theoretical = int(allocated_budget / price)
         shares = 0
 
+        # 從理論最大值開始遞減，找出第一個不超預算的可買股數 (確保最大化)
         for s in range(max_shares_theoretical, -1, -1):
             if s == 0:
                 shares = 0
@@ -313,6 +324,7 @@ def calculate_investment(edited_df, total_budget, fee_rate, min_fee):
 
             trade_value = s * price
             fee_calculated = trade_value * fee_rate
+            # 費用計算：取最大值 (最低手續費或計算費用)，並四捨五入
             current_fee = max(min_fee, round(fee_calculated))
             current_cost = trade_value + current_fee
 
@@ -332,22 +344,24 @@ def calculate_investment(edited_df, total_budget, fee_rate, min_fee):
             "分配金額": allocated_budget,
             "建議股數": shares_to_buy,
             "預估手續費": estimated_fee,
-            "總成本": round(total_cost, 2),
+            # 單項總成本保留 2 位小數，用於精確顯示
+            "總成本": round(total_cost, 2), 
         })
 
+    # 總花費也保留 2 位小數
     return results_list, round(total_spent, 2)
 
 def render_budget_metrics(total_budget, total_spent):
-    """渲染總預算指標卡片 (3欄，使用 sub-card-tile 樣式) - 泰倫風格 (V16: 移除小數點)"""
+    """渲染總預算指標卡片 (總覽指標：預計開支與剩餘資金均以整數顯示)"""
     global RESOURCE_READINESS_HEADER, TOTAL_CAPITAL_LABEL, ESTIMATED_COST_LABEL, REMAINING_FUNDS_LABEL, ACCENT_COLOR, MAIN_COLOR
     
     st.markdown(f"<div class='card-section-header'>{RESOURCE_READINESS_HEADER}</div>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns(3)
     
-    # 計算剩餘資金 (四捨五入到整數，用於顯示)
+    # 總覽金額 (開支, 剩餘) 顯示時四捨五入到整數
     remaining = total_budget - total_spent
-    remaining_display = round(remaining) # 移除小數點
-    total_spent_display = round(total_spent) # 移除小數點
+    remaining_display = round(remaining) 
+    total_spent_display = round(total_spent) 
 
     remaining_color = ACCENT_COLOR if remaining > 0 else MAIN_COLOR
     remaining_icon = "✅" if remaining > 0 else "⚠️"
@@ -377,7 +391,7 @@ def render_budget_metrics(total_budget, total_spent):
         """, unsafe_allow_html=True)
 
 def render_ticker_results_and_breakdown(results_list):
-    """渲染每檔股票的關鍵投資建議 (5 欄) - 泰倫風格 (V17: 調整欄位順序)"""
+    """渲染每檔股票的關鍵投資建議 (V19 順序調整)"""
     global DEPLOYMENT_HEADER, RECOMMENDED_UNITS_LABEL, TOTAL_DEPLOYMENT_COST_LABEL, TARGET_FUND_ALLOCATION_LABEL, UNIT_COST_LABEL, LOGISTICS_FEE_LABEL, DEPLOYMENT_TARGET_LABEL
     
     st.markdown(f"<div class='card-section-header'>{DEPLOYMENT_HEADER}</div>", unsafe_allow_html=True)
@@ -385,21 +399,21 @@ def render_ticker_results_and_breakdown(results_list):
     for item in results_list:
         st.markdown(f"<div class='ticker-group-header-sc'>{DEPLOYMENT_TARGET_LABEL.format(code=item['標的代號'], ratio=item['比例'])}</div>", unsafe_allow_html=True)
 
-        # 部署總開支 (Total Deployment Cost) 顯示回兩位小數 (因為單一項目比較精確)
+        # 單項部署總開支 (保留兩位小數)
         total_cost_display = item['總成本']
 
-        # 定義 5 個指標的顯示配置 - V17 順序調整
+        # V19 順序調整: 1. Units, 2. Unit Cost, 3. Fee, 4. Total Cost, 5. Allocation
         metrics = [
-            # 1. 建議生產單位數
+            # 1. 建議生產單位數 (高亮)
             (RECOMMENDED_UNITS_LABEL, item['建議股數'], "highlight"),
-            # 2. 單位造價
+            # 2. 單位造價 (兩位小數)
             (UNIT_COST_LABEL, f"TWD {item['價格']:,.2f}", "regular"),
-            # 3. 部署總開支 (單獨項目保留兩位小數)
-            (TOTAL_DEPLOYMENT_COST_LABEL, f"TWD {total_cost_display:,.2f}", "regular"), 
-            # 4. 目標資金配給 (分配金額保持整數或零位小數)
-            (TARGET_FUND_ALLOCATION_LABEL, f"TWD {item['分配金額']:,.0f}", "regular"),
-            # 5. 輸送燃料費
+            # 3. 輸送燃料費 (整數)
             (LOGISTICS_FEE_LABEL, f"TWD {item['預估手續費']:,.0f}", "regular"),
+            # 4. 部署總開支 (兩位小數)
+            (TOTAL_DEPLOYMENT_COST_LABEL, f"TWD {total_cost_display:,.2f}", "regular"), 
+            # 5. 目標資金配給 (整數/零位小數)
+            (TARGET_FUND_ALLOCATION_LABEL, f"TWD {item['分配金額']:,.0f}", "regular"),
         ]
 
         # 渲染 5 欄
@@ -419,7 +433,7 @@ def render_ticker_results_and_breakdown(results_list):
 
 def render_ticker_settings(ticker_map, allocation_weights, prices_ready=True):
     """
-    渲染可編輯的造價與比例面板 (卡片化) - 泰倫風格。
+    渲染可編輯的造價與比例面板 (卡片化)。
     """
     global CALIBRATION_HEADER, DATA_FETCH_WARNING, TARGET_DESIGNATION_LABEL, STRATEGIC_RATIO_LABEL, DEFAULT_UNIT_COST_LABEL, MAIN_COLOR
     
@@ -430,6 +444,7 @@ def render_ticker_settings(ticker_map, allocation_weights, prices_ready=True):
 
     for code in ticker_map.keys():
         weight = allocation_weights[code]
+        # 從 Session State 獲取當前價格，允許用戶修改
         price_value = st.session_state.editable_prices.get(code, 0.01)
 
         # Start of the card structure
@@ -456,6 +471,7 @@ def render_ticker_settings(ticker_map, allocation_weights, prices_ready=True):
             # Price Input (Interactive) - 標籤單獨顯示
             st.markdown(f"<div class='label-text' style='margin-bottom: 0;'>{DEFAULT_UNIT_COST_LABEL}</div>", unsafe_allow_html=True)
 
+            # 允許用戶輸入價格，格式為兩位小數
             new_price = st.number_input(
                 label=f"Price_Input_{code}",
                 min_value=0.0001,
@@ -465,6 +481,7 @@ def render_ticker_settings(ticker_map, allocation_weights, prices_ready=True):
                 key=f"price_input_{code}",
                 label_visibility="collapsed"
             )
+            # 將用戶輸入存回 Session State
             st.session_state.editable_prices[code] = new_price
 
         # End of the card structure
@@ -484,6 +501,7 @@ st.title(TACC_TITLE_TEXT)
 prices_ready = True
 with st.spinner(DATA_SYNC_SPINNER):
     current_prices, fetch_time = get_current_prices(TICKER_MAP)
+    # 如果所有價格都為 0.0，則視為數據鏈中斷
     if all(p == 0.0 for p in current_prices.values()):
         prices_ready = False
 
@@ -493,6 +511,7 @@ if 'editable_prices' not in st.session_state:
 else:
     # 確保新獲取的價格更新到 state 中，除非用戶已經手動編輯過
     for code, price in current_prices.items():
+        # 僅當用戶尚未在本次會話中與該輸入互動時，才自動更新最新價格
         if f"price_input_{code}" not in st.session_state and st.session_state.editable_prices[code] != price:
              st.session_state.editable_prices[code] = price
 
@@ -518,6 +537,7 @@ st.sidebar.caption(MIN_FEE_CAPTION.format(MIN_FEE=MIN_FEE))
 
 # 比例總和檢查
 if not check_allocation_sum(ALLOCATION_WEIGHTS):
+    # 這裡只做提醒，不強制修改，使用預設值
     st.sidebar.error("❌ 警告：所有標的分配比例總和不等於 100%。請修正 `ALLOCATION_WEIGHTS` 變量。")
     safe_weights = {k: v / sum(ALLOCATION_WEIGHTS.values()) for k, v in ALLOCATION_WEIGHTS.items()}
 else:
@@ -533,6 +553,7 @@ render_ticker_settings(TICKER_MAP, safe_weights, prices_ready)
 data_for_calc = {
     "標的代號": list(TICKER_MAP.keys()),
     "設定比例": [safe_weights[code] for code in TICKER_MAP.keys()],
+    # 使用可編輯的價格進行計算
     "當前價格 (自動獲取)": [st.session_state.editable_prices[code] for code in TICKER_MAP.keys()]
 }
 edited_df = pd.DataFrame(data_for_calc)
