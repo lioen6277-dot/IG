@@ -10,12 +10,13 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- 顏色定義與常數 (鮭魚色系) ---
-SALMON_MAIN = "#FF6347"  # 珊瑚紅/番茄紅 (核心色，用於標題, 邊框, 警告)
-SALMON_ACCENT = "#FFA07A" # 淺鮭魚色 (強調色，用於建議股數, 剩餘資本)
+# --- 顏色定義與常數 (新配色：深珊瑚紅 / 淺珊瑚紅 V8) ---
+MAIN_COLOR = "#cf6955"    # 深珊瑚紅/鐵鏽紅 (核心主色，用於標題, 邊框)
+ACCENT_COLOR = "#e9967a"  # 淺珊瑚紅/鮭魚色 (強調色，用於建議股數, 剩餘資本高亮)
 TEXT_COLOR = "#ffffff"
 LABEL_COLOR = "#b0b0b0"
 DARK_BG = "#1a1a1a"
+CARD_BG = "#1e2126" # 稍微亮一點，與背景區分，模擬卡片層次
 
 # 投資標的與對應的 Yahoo Finance 代號
 TICKER_MAP = {
@@ -33,7 +34,7 @@ FEE_RATE_DEFAULT = 0.001425
 MIN_FEE = 1
 TCDI_TITLE_TEXT = "泰倫戰術資本部署介面 (T.C.D.I.)"
 
-# --- 0. CSS 注入：深色模式與客製化主題 (鮭魚色系與卡片一致性) ---
+# --- 0. CSS 注入：新配色與統一卡片主題 (V8) ---
 
 st.markdown(f"""
 <style>
@@ -44,47 +45,40 @@ st.markdown(f"""
     background-color: #0e1117;
 }}
 
-/* -------------------- 標題樣式 (鮭魚色主題) -------------------- */
+/* -------------------- 標題樣式 (新主色) -------------------- */
 h1 {{
     font-size: 2.2em !important;
-    color: {SALMON_MAIN} !important;
+    color: {MAIN_COLOR} !important;
     font-weight: bold !important;
     margin-bottom: 0.5rem !important;
-    text-shadow: 0 0 5px rgba(255, 99, 71, 0.5); /* 核心色光暈 */
+    text-shadow: 0 0 5px rgba(207, 105, 85, 0.5); /* 主色光暈 */
 }}
 
-/* -------------------- 單一卡片排版的核心調整 -------------------- */
-/* Base Card Style */
-.metric-card {{
-    background: rgba(255, 255, 255, 0.05);
+/* -------------------- 統一基礎卡片樣式 (Base Card Style) V8 -------------------- */
+.base-card {{
+    background: {CARD_BG}; /* 統一的卡片背景 */
+    border: 2px solid {MAIN_COLOR}; /* 統一的主色邊框 */
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+    height: 100%;
+    box-shadow: 0 0 10px rgba(207, 105, 85, 0.2); /* 主色陰影 */
+    transition: all 0.3s ease;
+}}
+
+/* -------------------- 內部指標區塊樣式 (Metric Block Style) V8 -------------------- */
+/* 這是卡片內部用於展示單個指標的容器 */
+.metric-block {{
+    background: rgba(255, 255, 255, 0.05); /* 輕微的深色背景，提供層次感 */
     border-radius: 8px;
     padding: 1rem;
     margin-bottom: 0.5rem;
     height: 100%;
-    color: {TEXT_COLOR};
-    transition: background 0.3s;
+    border-left: 4px solid {ACCENT_COLOR}; /* 使用強調色做左側裝飾線 */
 }}
 
-/* Main Budget Card - 主體卡片 */
-.metric-card-main {{
-    background: {DARK_BG};
-    border: 2px solid {SALMON_MAIN}; /* 鮭魚主色邊框 */
-    border-radius: 12px;
-    padding: 1.5rem;
-    margin-top: 1rem;
-    box-shadow: 0 0 10px rgba(255, 99, 71, 0.2); /* 鮭魚主色陰影 */
-}}
-
-/* Detail Card - 內部區塊細節卡片 (用於結果展示，確保與 metric-card 視覺一致) */
-.metric-card-detail {{
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 6px; /* 稍微小一點的圓角 */
-    padding: 0.8rem;
-    margin-bottom: 0.3rem;
-    height: 100%;
-    border-left: none; /* 移除左邊線以保持一致性 */
-}}
-
+/* -------------------- 文字與數值樣式 -------------------- */
 /* Label text */
 .label-text {{
     font-size: 0.9em;
@@ -102,12 +96,12 @@ h1 {{
     font-weight: bold;
 }}
 
-/* Value text - Highlighted style for Shares (鮭魚強調色) */
+/* Value text - Highlighted style for Shares (淺珊瑚紅強調色) */
 .value-text-highlight {{
-    color: {SALMON_ACCENT}; /* 淺鮭魚色強調 */
+    color: {ACCENT_COLOR}; /* 淺珊瑚紅強調 */
     font-size: 2.0em;
     font-weight: 900;
-    text-shadow: 0 0 8px rgba(255, 160, 122, 0.5); /* 淺鮭魚色光暈 */
+    text-shadow: 0 0 8px rgba(233, 150, 122, 0.5); /* 淺珊瑚紅光暈 */
 }}
 .value-text-regular {{
     color: {TEXT_COLOR};
@@ -115,53 +109,80 @@ h1 {{
     font-weight: bold;
 }}
 
-
-/* Ticker Header (鮭魚色風格標頭) */
+/* Section Header (主色風格標頭) */
 .card-section-header {{
-    color: {SALMON_MAIN};
+    color: {MAIN_COLOR};
     font-weight: bold;
-    font-size: 1.3em;
+    font-size: 1.4em;
     padding: 0.7rem 0;
-    margin-top: 1.5rem;
-    margin-bottom: 0.5rem;
-    border-bottom: 2px solid {SALMON_MAIN};
+    margin-top: 0.5rem;
+    margin-bottom: 0.8rem;
+    border-bottom: 2px solid {MAIN_COLOR};
     text-transform: uppercase;
 }}
 
 .ticker-group-header-sc {{
-    color: {SALMON_MAIN};
+    color: {ACCENT_COLOR}; /* 使用強調色 */
     font-weight: 600;
     font-size: 1.1em;
     padding: 0.5rem 0;
     margin-top: 1rem;
     margin-bottom: 0.5rem;
-    border-bottom: 1px dashed rgba(255, 99, 71, 0.5); /* 鮭魚色虛線邊框 */
+    border-bottom: 1px dashed rgba(233, 150, 122, 0.5); /* 淺珊瑚紅虛線 */
 }}
 
-/* --- 專門針對 st.number_input 的樣式優化 --- */
-.stNumberInput label {{ display: none !important; }}
-
+/* --- 專門針對 st.number_input 的樣式優化 (V8: 融入卡片) --- */
+/* 將 number_input 容器背景設深，以與卡片背景區分 */
 .stNumberInput > div > div {{
-    background-color: #2c2c2c;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 4px;
+    background-color: #2e2e2e; 
+    border: 1px solid rgba(233, 150, 122, 0.3); /* 輕微的淺珊瑚紅邊框 */
+    border-radius: 6px;
+    padding: 0.5rem;
+    transition: all 0.2s ease;
+}}
+/* 聚焦時的邊框和陰影 (更強烈的淺珊瑚紅聚焦效果) */
+.stNumberInput > div > div:focus-within {{
+    background-color: #242424; 
+    border-color: {ACCENT_COLOR} !important; 
+    box-shadow: 0 0 7px rgba(233, 150, 122, 0.7); 
+}}
+.stNumberInput input {{
+    color: {ACCENT_COLOR} !important; /* 輸入的數字顏色也用強調色 */
+    font-weight: bold;
 }}
 
 /* -------------------- 其他微調 -------------------- */
-/* Info box (st.info) 風格覆蓋 - 核心色一致 */
+/* Info box (st.info) 風格覆蓋 - 主色一致 */
 div[role="alert"] {{
-    background-color: rgba(255, 99, 71, 0.15) !important;
-    border-left: 5px solid {SALMON_MAIN} !important;
+    background-color: rgba(207, 105, 85, 0.15) !important; /* 主色背景 */
+    border-left: 5px solid {MAIN_COLOR} !important;
     color: {TEXT_COLOR} !important;
     font-size: 1.0em !important;
-    margin-top: 0.5rem !important;
+    margin-top: 0rem !important;
     margin-bottom: 0.5rem !important;
 }}
 
-/* Sidebar 優化 */
+/* Sidebar 優化 (V8: 統一風格) */
 .stSidebar > div:first-child {{
-    background-color: #1a1a1a;
-    border-right: 2px solid {SALMON_MAIN};
+    background-color: {DARK_BG};
+    border-right: 2px solid {MAIN_COLOR};
+}}
+/* 側邊欄標題 */
+.stSidebar h2 {{
+    color: {MAIN_COLOR} !important;
+    border-bottom: 1px solid rgba(207, 105, 85, 0.5);
+    padding-bottom: 0.5rem;
+    margin-bottom: 1rem;
+}}
+/* 側邊欄輸入框標籤 */
+.stSidebar .stNumberInput label p {{
+    color: {LABEL_COLOR} !important;
+    font-weight: 500;
+}}
+/* 側邊欄小字說明 (caption) */
+.stSidebar .stCaption {{
+    color: {LABEL_COLOR} !important;
+    font-size: 0.8em;
 }}
 
 </style>
@@ -183,7 +204,7 @@ def get_current_prices(ticker_map):
         data = yf.download(tickers, period="1d", interval="1m", progress=False, timeout=8)
 
         if data.empty:
-             print("⚠️ 數據下載成功，但返回的 DataFrame 為空。")
+             # print("⚠️ 數據下載成功，但返回的 DataFrame 為空。")
              return prices, fetch_time
 
         for code, ticker in ticker_map.items():
@@ -203,11 +224,12 @@ def get_current_prices(ticker_map):
                              prices[code] = round(valid_prices.iloc[-1], 2)
 
             except Exception as e:
-                print(f"⚠️ 處理 {code} ({ticker}) 數據時發生錯誤: {e}")
+                # print(f"⚠️ 處理 {code} ({ticker}) 數據時發生錯誤: {e}")
                 prices[code] = 0.0
 
     except Exception as e:
-        print(f"❌ 無法獲取行情數據 (整體失敗): {e}")
+        # print(f"❌ 無法獲取行情數據 (整體失敗): {e}")
+        pass
 
     return prices, fetch_time
 
@@ -218,7 +240,8 @@ def calculate_investment(edited_df, total_budget, fee_rate, min_fee):
     for _, row in edited_df.iterrows():
         code = row["標的代號"]
         weight = row["設定比例"]
-        price = row["當前價格 (自動獲取)"]
+        # 使用 Session State 讀取到的價格，該價格已經從 yfinance 獲取或由用戶手動輸入
+        price = row["當前價格 (自動獲取)"] 
         allocated_budget = total_budget * weight
 
         shares_to_buy = 0
@@ -237,10 +260,12 @@ def calculate_investment(edited_df, total_budget, fee_rate, min_fee):
             })
             continue
 
+        # 確保價格不是 0，且分配預算足夠進行一次交易
         max_shares_theoretical = int(allocated_budget / price)
 
         shares = 0
 
+        # 從最大的股數開始遞減尋找，直到總成本 <= 分配預算
         for s in range(max_shares_theoretical, -1, -1):
             if s == 0:
                 shares = 0
@@ -273,12 +298,12 @@ def calculate_investment(edited_df, total_budget, fee_rate, min_fee):
     return results_list, round(total_spent, 2)
 
 def render_budget_metrics(total_budget, total_spent):
-    """渲染總預算指標卡片 (3欄)"""
+    """渲染總預算指標卡片 (3欄，使用統一的 metric-block 樣式)"""
     col1, col2, col3 = st.columns(3)
 
     with col1:
         st.markdown(f"""
-        <div class='metric-card'>
+        <div class='metric-block'>
             <div class='label-text'>💰 總分配資本 (Total Capital)</div>
             <div class='value-text-main'>TWD {total_budget:,.0f}</div>
         </div>
@@ -286,7 +311,7 @@ def render_budget_metrics(total_budget, total_spent):
 
     with col2:
         st.markdown(f"""
-        <div class='metric-card'>
+        <div class='metric-block'>
             <div class='label-text'>📊 預估部署成本 (Estimated Cost)</div>
             <div class='value-text-main'>TWD {total_spent:,.2f}</div>
         </div>
@@ -294,19 +319,19 @@ def render_budget_metrics(total_budget, total_spent):
 
     with col3:
         remaining = total_budget - total_spent
-        # 使用鮭魚強調色
-        remaining_color = SALMON_ACCENT if remaining > 0 else SALMON_MAIN
+        # 使用強調色
+        remaining_color = ACCENT_COLOR if remaining > 0 else MAIN_COLOR
         remaining_icon = "✅" if remaining > 0 else "⚠️"
 
         st.markdown(f"""
-        <div class='metric-card'>
+        <div class='metric-block'>
             <div class='label-text'>{remaining_icon} 剩餘彈藥 (Remaining Budget)</div>
             <div style='color: {remaining_color}; font-size: 1.5em; font-weight: bold;'>TWD {remaining:,.2f}</div>
         </div>
         """, unsafe_allow_html=True)
 
 def render_ticker_results_and_breakdown(results_list):
-    """渲染每檔股票的關鍵投資建議 (5 欄統一格式，使用 metric-card-detail 樣式)"""
+    """渲染每檔股票的關鍵投資建議 (5 欄統一格式，使用 metric-block 樣式)"""
 
     for item in results_list:
         st.markdown(f"<div class='ticker-group-header-sc'>🛡️ 部署目標: {item['標的代號']} ({item['比例']})</div>", unsafe_allow_html=True)
@@ -316,7 +341,7 @@ def render_ticker_results_and_breakdown(results_list):
         # Col 1: 建議股數 (最大化高亮)
         with col1:
             st.markdown(f"""
-            <div class='metric-card-detail'>
+            <div class='metric-block'>
                 <div class='label-text'>建議戰術股數 (Shares)</div>
                 <div class='value-text-highlight'>{item['建議股數']}</div>
             </div>
@@ -325,7 +350,7 @@ def render_ticker_results_and_breakdown(results_list):
         # Col 2: 總成本
         with col2:
             st.markdown(f"""
-            <div class='metric-card-detail'>
+            <div class='metric-block'>
                 <div class='label-text'>總部署成本 (Cost)</div>
                 <div class='value-text-regular'>TWD {item['總成本']:,.2f}</div>
             </div>
@@ -334,7 +359,7 @@ def render_ticker_results_and_breakdown(results_list):
         # Col 3: 分配預算
         with col3:
             st.markdown(f"""
-            <div class='metric-card-detail'>
+            <div class='metric-block'>
                 <div class='label-text'>目標資本 (Target Capital)</div>
                 <div class='value-text-regular'>TWD {item['分配金額']:,.0f}</div>
             </div>
@@ -343,7 +368,7 @@ def render_ticker_results_and_breakdown(results_list):
         # Col 4: 當前價格
         with col4:
             st.markdown(f"""
-            <div class='metric-card-detail'>
+            <div class='metric-block'>
                 <div class='label-text'>單價 (Unit Price)</div>
                 <div class='value-text-regular'>TWD {item['價格']:,.2f}</div>
             </div>
@@ -352,7 +377,7 @@ def render_ticker_results_and_breakdown(results_list):
         # Col 5: 預估手續費
         with col5:
             st.markdown(f"""
-            <div class='metric-card-detail'>
+            <div class='metric-block'>
                 <div class='label-text'>交易燃料費 (Broker Fee)</div>
                 <div class='value-text-regular'>TWD {item['預估手續費']:,.0f}</div>
             </div>
@@ -360,60 +385,59 @@ def render_ticker_results_and_breakdown(results_list):
 
 
 def render_editable_input_panel(ticker_map, allocation_weights, prices_ready=True):
-    """渲染價格與比例設定區塊。"""
+    """V8: 統一使用 metric-block 內部風格，結構保持 V7 的 columns 佈局。"""
     st.markdown("<div class='card-section-header'>⚙️ 戰術參數設定 (價格與比例)</div>", unsafe_allow_html=True)
 
     if not prices_ready:
         st.warning("⚠️ 警告：價格數據獲取失敗，所有價格已設為 0。請手動輸入價格以進行準確計算！")
 
-    st.caption("💬 請在 **部署單價 (TWD)** 欄位輸入您想測試的價格。")
-
-    # 1. Column Header (Labels)
-    header_cols = st.columns(3)
-    header_cols[0].markdown("<div class='label-text' style='color: white; padding-bottom: 0.3rem;'>🎯 標的代號</div>", unsafe_allow_html=True)
-    header_cols[1].markdown("<div class='label-text' style='color: white; padding-bottom: 0.3rem;'>分配比例 (%)</div>", unsafe_allow_html=True)
-    header_cols[2].markdown("<div class='label-text' style='color: white; padding-bottom: 0.3rem;'>部署單價 (TWD)</div>", unsafe_allow_html=True)
-
-    st.markdown("<hr style='margin: 0.1rem 0; border-top: 1px solid rgba(255, 255, 255, 0.1);'>", unsafe_allow_html=True)
-
-    # 2. Data Rows
+    # 2. Data Rows (結構化，使用 st.columns)
     for code in ticker_map.keys():
         weight = allocation_weights[code]
-        cols = st.columns(3)
+        price_value = st.session_state.editable_prices.get(code, 0.01)
 
-        # Col 1: Ticker Value (鮭魚色強調代號)
-        with cols[0]:
-            st.markdown(f"""
-            <div style='padding: 0.4rem 0;'>
-                <div class='value-text-regular' style='color: {SALMON_MAIN}; font-weight: 900;'>{code}</div>
-            </div>
-            """, unsafe_allow_html=True)
+        # 使用 st.container 模擬一個子卡片的邊界，並應用 metric-block 樣式
+        with st.container():
+            st.markdown("<div class='metric-block'>", unsafe_allow_html=True) 
+            
+            # 比例約 1.5 : 1 : 2.5
+            col_code, col_weight, col_price = st.columns([1.5, 1, 2.5])
 
-        # Col 2: Weight Value
-        with cols[1]:
-            st.markdown(f"""
-            <div style='padding: 0.4rem 0;'>
-                <div class='value-text-regular'>{weight*100:.0f}%</div>
-            </div>
-            """, unsafe_allow_html=True)
+            # Column 1: Ticker & Code
+            with col_code:
+                st.markdown(f"""
+                    <div class='label-text' style='color: {MAIN_COLOR};'>🎯 {code}</div>
+                    <div class='value-text-regular' style='font-size: 0.85em; color: {LABEL_COLOR}; margin-top: 0.25rem;'>目標標的代號</div>
+                """, unsafe_allow_html=True)
 
-        # Col 3: Editable Price Input
-        with cols[2]:
-            price_value = st.session_state.editable_prices.get(code, 0.01)
-            new_price = st.number_input(
-                label=f"Price_Input_{code}",
-                min_value=0.0001,
-                value=price_value,
-                step=0.01,
-                format="%.2f",
-                key=f"price_input_{code}",
-                label_visibility="collapsed"
-            )
-            st.session_state.editable_prices[code] = new_price
+            # Column 2: Weight (Static Display)
+            with col_weight:
+                st.markdown(f"""
+                    <div class='label-text'>比例</div>
+                    <div class='value-text-regular' style='font-size: 1.2em;'>{weight*100:.0f}%</div>
+                """, unsafe_allow_html=True)
 
-        # 在行與行之間添加虛線分隔
-        if code != list(ticker_map.keys())[-1]:
-             st.markdown("<div style='border-bottom: 1px dotted rgba(255, 255, 255, 0.05); margin: 0.2rem 0;'></div>", unsafe_allow_html=True)
+
+            # Column 3: Price (Editable Input - the V6 focus)
+            with col_price:
+                # 獨立的標籤，位於輸入框上方
+                st.markdown("<div class='label-text'>部署單價 (TWD)</div>", unsafe_allow_html=True)
+
+                # The actual number_input ( relies on CSS for the card-like appearance )
+                new_price = st.number_input(
+                    label=f"Price_Input_{code}",
+                    min_value=0.0001,
+                    value=price_value,
+                    step=0.01,
+                    format="%.2f",
+                    key=f"price_input_{code}",
+                    label_visibility="collapsed" # 隱藏 Streamlit 自動生成的標籤
+                )
+                st.session_state.editable_prices[code] = new_price
+
+            # End the HTML container div tag manually
+            st.markdown("</div>", unsafe_allow_html=True)
+
 
 def check_allocation_sum(weights):
     """檢查分配比例總和是否為 1.0"""
@@ -435,6 +459,7 @@ with st.spinner('正在從 Terran 交易所獲取最新戰術報價 (Yahoo Finan
 if 'editable_prices' not in st.session_state:
     st.session_state.editable_prices = current_prices.copy()
 else:
+    # 確保 session state 中的價格是最新獲取的，但如果用戶已經手動輸入，則不覆蓋
     for code, price in current_prices.items():
         if f"price_input_{code}" not in st.session_state:
              st.session_state.editable_prices[code] = price
@@ -445,7 +470,7 @@ st.sidebar.header("⚙️ 資源調度配置")
 total_budget = st.sidebar.number_input(
     "每月資本調度預算 (TWD)",
     min_value=100,
-    value=3000,
+    value=30000,
     step=1000,
     format="%d"
 )
@@ -466,13 +491,13 @@ if not check_allocation_sum(ALLOCATION_WEIGHTS):
 else:
     safe_weights = ALLOCATION_WEIGHTS
 
-# --- 應用程式主體：單一卡片開始 ---
-st.markdown("<div class='metric-card-main'>", unsafe_allow_html=True)
+# --- 應用程式主體：單一總卡片開始 ---
+st.markdown("<div class='base-card'>", unsafe_allow_html=True)
 
 # 1. 報價資訊
 st.info(f"🌐 數據同步時間：{fetch_time.strftime('%Y-%m-%d %H:%M:%S')} (戰術報價資料每 60 秒自動更新一次)")
 
-# 2. 價格與比例輸入 (Setting)
+# 2. 價格與比例輸入 (Setting) - 每個設定項目本身就是一個 metric-block (內部小卡片)
 render_editable_input_panel(TICKER_MAP, safe_weights, prices_ready)
 
 # ========== 構造 DataFrame for Calculation (從 Session State 讀取數據) ==========
@@ -486,16 +511,16 @@ edited_df = pd.DataFrame(data_for_calc)
 # ========== 計算（基於編輯後的數據）==========
 results_list, total_spent = calculate_investment(edited_df, total_budget, fee_rate, MIN_FEE)
 
-# 3. 總預算總覽 (Budget Metrics)
+# 3. 總預算總覽 (Budget Metrics) - 總覽使用 metric-block (內部小卡片)
 st.markdown("<div class='card-section-header'>💰 資本部署總覽 (Budget Overview)</div>", unsafe_allow_html=True)
 render_budget_metrics(total_budget, total_spent)
 
-# 4. 建議買入與詳細明細 (Results)
+# 4. 建議買入與詳細明細 (Results) - 詳細明細使用 metric-block (內部小卡片)
 st.markdown("<div class='card-section-header'>✨ 戰術部署建議 (Purchase Recommendation)</div>", unsafe_allow_html=True)
 render_ticker_results_and_breakdown(results_list)
 
 # 5. 邏輯說明
 st.markdown(f"<div style='margin-top: 1.5rem; color: {LABEL_COLOR}; font-size: 0.9em;'>📌 T.C.D.I. 部署原則：優先確保買入股數最大化，且總成本 **嚴格不超過** 分配預算。交易燃料費最低 {MIN_FEE} 元計算。</div>", unsafe_allow_html=True)
 
-# --- 應用程式主體：單一卡片結束 ---
+# --- 應用程式主體：單一總卡片結束 ---
 st.markdown("</div>", unsafe_allow_html=True)
