@@ -141,33 +141,13 @@ data_to_edit = {
 }
 input_df = pd.DataFrame(data_to_edit)
 
-st.subheader("價格與比例輸入")
-st.caption("報價為自動獲取，您仍可手動點擊價格欄位進行情境測試。")
-
-edited_df = st.data_editor(
-    input_df,
-    hide_index=True,
-    column_config={
-        "當前價格 (自動獲取)": st.column_config.NumberColumn(
-            "當前價格 (TWD)",
-            min_value=0.01,
-            format="%.2f"
-        )
-    },
-    num_rows="fixed"
-)
-
-if edited_df['設定比例'].sum() != 1.0:
-    st.error(f"⚠️ 錯誤：設定比例總和必須為 100% (目前為 {edited_df['設定比例'].sum()*100:.0f}%)，請調整。")
-    st.stop()
-
 
 # --- 6. 計算核心邏輯 ---
 
 results_list = []
 total_spent = 0.0
 
-for index, row in edited_df.iterrows():
+for index, row in input_df.iterrows():
     code = row["標的代號"]
     weight = row["設定比例"]
     price = row["當前價格 (自動獲取)"] 
@@ -217,22 +197,32 @@ with col3:
 
 st.divider()
 
-# 輸出 2: 建議投資分配與結果 (Highlight & Detailed Table)
+# 輸出 2: 建議投資分配與結果 (新排版 - 4欄佈局)
 st.subheader("✅ 建議投資分配與結果")
 
 st.header("✨ 建議買入股數概覽 (重點)")
-# 使用 st.metric 凸顯每個標的的股數
+
+# 使用新的4欄佈局顯示每個標的
 for item in results_list:
     st.markdown(f"**--- {item['標的代號']} ({item['比例']}) ---**")
     cols = st.columns(4)
-    cols[0].metric(label="✅ 建議股數", value=item['建議股數'])
-    cols[1].metric(label="預估成本", value=f"TWD {item['總成本']:,.0f}")
-    cols[2].metric(label="分配預算", value=f"TWD {item['分配金額']:,.0f}")
-    cols[3].metric(label="當前價格", value=f"TWD {item['價格']:,.2f}")
+    
+    with cols[0]:
+        st.metric(label="✅ 建議股數", value=item['建議股數'])
+    
+    with cols[1]:
+        st.metric(label="預估成本", value=f"TWD {item['總成本']:,.0f}")
+    
+    with cols[2]:
+        st.metric(label="分配預算", value=f"TWD {item['分配金額']:,.0f}")
+    
+    with cols[3]:
+        st.metric(label="當前價格", value=f"TWD {item['價格']:,.2f}")
+
 st.markdown("---")
 
-
-# 詳細表格
+# --- 8. 詳細表格輸出 ---
+st.subheader("📊 詳細投資表")
 st.dataframe(
     results_df,
     hide_index=True,
@@ -244,3 +234,25 @@ st.dataframe(
 )
 
 st.caption("計算邏輯依據：優先確保買入股數最大化，且總花費不超過預算；手續費最低 1 元計算。")
+
+# --- 9. 價格與比例輸入 (排到最後) ---
+st.divider()
+st.subheader("價格與比例輸入")
+st.caption("報價為自動獲取，您仍可手動點擊價格欄位進行情境測試。")
+
+edited_df = st.data_editor(
+    input_df,
+    hide_index=True,
+    column_config={
+        "當前價格 (自動獲取)": st.column_config.NumberColumn(
+            "當前價格 (TWD)",
+            min_value=0.01,
+            format="%.2f"
+        )
+    },
+    num_rows="fixed"
+)
+
+if edited_df['設定比例'].sum() != 1.0:
+    st.error(f"⚠️ 錯誤：設定比例總和必須為 100% (目前為 {edited_df['設定比例'].sum()*100:.0f}%)，請調整。")
+    st.stop()
