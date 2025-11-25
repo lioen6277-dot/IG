@@ -15,40 +15,39 @@ st.set_page_config(
 
 # 台灣股市代碼對應 Yahoo Finance Ticker
 TICKER_MAP = {
-    "009813": "009813.TW",  # **注意: 009813.TW 可能為無效代碼，請自行檢查。**
+    "009813": "009813.TW",
     "0050": "0050.TW",
     "00878": "00878.TW",
 }
-# 預設比例
 ALLOCATION_WEIGHTS = {
     "009813": 0.50, 
     "0050": 0.30, 
     "00878": 0.20
 }
 
-FEE_RATE_DEFAULT: float = 0.001425  # 0.1425%
-MIN_FEE: int = 1  # 零股手續費最低 1 元
+FEE_RATE_DEFAULT: float = 0.001425
+MIN_FEE: int = 1
 
 # --- 2. 價格獲取函式 (使用 Streamlit 快取) ---
 
-@st.cache_data(ttl=60) # 設定快取時間為 60 秒 (每 60 秒才會重新向 Yahoo Finance 請求一次資料)
+@st.cache_data(ttl=60) # 設定快取時間為 60 秒
 def get_current_prices(ticker_map):
     """從 Yahoo Finance 獲取即時價格"""
     prices = {}
     fetch_time = datetime.now()
     
-    # 使用 yf.download 批量獲取數據
     tickers = list(ticker_map.values())
-    data = yf.download(tickers, period="1d", interval="1m", progress=False)
+    # 設置較短的超時時間
+    data = yf.download(tickers, period="1d", interval="1m", progress=False, timeout=5) 
 
     for code, ticker in ticker_map.items():
         try:
-            # 嘗試取得最新收盤價 (Close)
             if not data.empty and ticker in data['Close']:
+                # 取得最新收盤價
                 price = data['Close'][ticker].iloc[-1]
                 prices[code] = round(price, 2)
             else:
-                st.warning(f"⚠️ 無法獲取 {code} ({ticker}) 最新價格，將使用預設值或 0。")
+                st.warning(f"⚠️ 無法獲取 {code} ({ticker}) 最新價格，將使用 0。")
                 prices[code] = 0.0
         except Exception:
             prices[code] = 0.0
@@ -91,7 +90,7 @@ fee_rate = st.sidebar.number_input(
 st.sidebar.caption(f"手續費最低 {MIN_FEE} 元 / 筆")
 
 
-# --- 5. 數據準備與輸入區 ---
+# --- 5. 數據準備與輸入區 (價格與比例輸入) ---
 
 # 建立用於顯示和調整的 DataFrame
 data_to_edit = {
@@ -101,9 +100,9 @@ data_to_edit = {
 }
 input_df = pd.DataFrame(data_to_edit)
 
-st.subheader("價格與比例輸入 (可手動修改價格進行情境測試)")
+st.subheader("價格與比例輸入")
+st.caption("報價為自動獲取，您仍可手動點擊價格欄位進行情境測試。")
 
-# 使用 data_editor 顯示價格，並允許使用者手動修改
 edited_df = st.data_editor(
     input_df,
     hide_index=True,
@@ -133,7 +132,6 @@ for index, row in edited_df.iterrows():
     weight = row["設定比例"]
     price = row["當前價格 (自動獲取)"] # 使用使用者可能調整過的新價格
 
-    # 1. 分配金額 (D欄)
     allocated_budget = total_budget * weight
 
     shares_to_buy = 0
@@ -141,14 +139,9 @@ for index, row in edited_df.iterrows():
     total_cost = 0.0
 
     if price > 0:
-        # 2. 建議買入股數 (E欄)
         shares_to_buy = int(allocated_budget / (price * (1 + fee_rate)))
-
-        # 3. 預估手續費 (F欄)
         fee_calculated = price * shares_to_buy * fee_rate
         estimated_fee = max(MIN_FEE, round(fee_calculated))
-
-        # 4. 總成本
         total_cost = (shares_to_buy * price) + estimated_fee
 
     total_spent += total_cost
@@ -163,10 +156,28 @@ for index, row in edited_df.iterrows():
         "總成本": total_cost,
     })
 
-# --- 7. 輸出結果 ---
-
 results_df = pd.DataFrame(results_list)
 
+# --- 7. 輸出區 (依照新的排版順序) ---
+
+# 輸出 1: 總投資預算 (Summary Metrics)
+st.divider()
+st.header("💰 總投資預算")
+
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    st.metric(label="總投資預算", value=f"TWD {total_budget:,.0f}")
+
+with col2:
+    st.metric(label="預估總花費", value=f"TWD {total_spent:,.0f}")
+
+with col3:
+    st.metric(label="剩餘預算", value=f"TWD {total_budget - total_spent:,.0f}")
+
+st.divider()
+
+# 輸出 2: 建議投資分配與結果 (Detailed Table)
 st.subheader("✅ 建議投資分配與結果")
 st.dataframe(
     results_df,
@@ -178,16 +189,4 @@ st.dataframe(
     }
 )
 
-st.divider()
-
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    st.metric(label="💰 總投資預算", value=f"TWD {total_budget:,.0f}")
-
-with col2:
-    st.metric(label="💸 預估總花費", value=f"TWD {total_spent:,.0f}")
-
-with col3:
-    st.metric(label="🎁 剩餘預算", value=f"TWD {total_budget - total_spent:,.0f}")
-    
+st.caption("計算邏輯依據：優先確保買入股數最大化，且總花費不超過預算；手續費最低 1 元計算。")
