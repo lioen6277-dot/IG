@@ -14,7 +14,7 @@ REMAINING_FUNDS_LABEL = "現存資金餘額 (Remaining Funds)"
 RESOURCE_READINESS_HEADER = "💰 資源戰備總覽 (Resource Readiness)"
 BUDGET_SIDEBAR_HEADER = "⚙️ 資源調度指揮站"
 BUDGET_INPUT_LABEL = "每月行動預算 (TWD)"
-FEE_RATE_INPUT_LABEL = "輸送燃料費率 (0.xxxxxx)" # V18: 修正標籤以符合 6 位小數精度
+FEE_RATE_INPUT_LABEL = "輸送燃料費率 (0.xxxxxx)" 
 MIN_FEE_CAPTION = "💡 最低燃料費為 **{MIN_FEE}** 元 / 筆。請使用 **小數** 格式輸入。"
 
 # 部署/結果類
@@ -43,7 +43,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- 顏色定義與常數 (V19 - 泰倫風格) ---
+# --- 顏色定義與常數 (V20 - 泰倫風格) ---
 MAIN_COLOR = "#cf6955"    # 深珊瑚紅/鐵鏽紅 (核心主色，用於標題, 邊框)
 ACCENT_COLOR = "#e9967a"  # 淺珊瑚紅/鮭魚色 (強調色，用於建議股數, 剩餘資本高亮)
 TEXT_COLOR = "#ffffff"
@@ -65,8 +65,9 @@ ALLOCATION_WEIGHTS = {
 }
 FEE_RATE_DEFAULT = 0.001425
 MIN_FEE = 1
+DEFAULT_BUDGET = 3000 # V20: 更新預設預算
 
-# --- 0. CSS 注入：字體微調與統一主題 (V19) ---
+# --- 0. CSS 注入：字體微調與統一主題 (V20) ---
 
 st.markdown(f"""
 <style>
@@ -114,7 +115,7 @@ h1 {{
     box-shadow: 0 0 15px rgba(233, 150, 122, 0.5); 
 }}
 
-/* -------------------- 文字與數值樣式 V19 -------------------- */
+/* -------------------- 文字與數值樣式 V20 -------------------- */
 .label-text {{
     font-size: 0.9em; 
     color: {LABEL_COLOR};
@@ -178,7 +179,7 @@ h1 {{
     border-bottom: 1px dashed rgba(233, 150, 122, 0.5);
 }}
 
-/* --- 專門針對 st.number_input 的樣式優化 V19 --- */
+/* --- 專門針對 st.number_input 的樣式優化 V20 --- */
 /* 輸入框背景與邊框 */
 .stNumberInput > div > div {{
     background-color: #2e2e2e; 
@@ -402,7 +403,7 @@ def render_ticker_results_and_breakdown(results_list):
         # 單項部署總開支 (保留兩位小數)
         total_cost_display = item['總成本']
 
-        # V19 順序調整: 1. Units, 2. Unit Cost, 3. Fee, 4. Total Cost, 5. Allocation
+        # V19 順序: 1. Units, 2. Unit Cost, 3. Fee, 4. Total Cost, 5. Allocation
         metrics = [
             # 1. 建議生產單位數 (高亮)
             (RECOMMENDED_UNITS_LABEL, item['建議股數'], "highlight"),
@@ -521,7 +522,7 @@ st.sidebar.header(BUDGET_SIDEBAR_HEADER)
 total_budget = st.sidebar.number_input(
     BUDGET_INPUT_LABEL,
     min_value=100,
-    value=30000,
+    value=DEFAULT_BUDGET, # V20: 使用新的預設值 3000
     step=1000,
     format="%d"
 )
