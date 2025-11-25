@@ -10,13 +10,13 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- 顏色定義與常數 (V11 - 引入 Sub-Card 結構) ---
+# --- 顏色定義與常數 (V12 - 字體放大優化) ---
 MAIN_COLOR = "#cf6955"    # 深珊瑚紅/鐵鏽紅 (核心主色，用於標題, 邊框)
 ACCENT_COLOR = "#e9967a"  # 淺珊瑚紅/鮭魚色 (強調色，用於建議股數, 剩餘資本高亮)
 TEXT_COLOR = "#ffffff"
 LABEL_COLOR = "#b0b0b0"
 DARK_BG = "#1a1a1a"
-TILE_BG = "#1e2126" # 次級卡片/磁磚背景色 (比主背景深色 #0e1117 稍亮)
+TILE_BG = "#1e2126" # 次級卡片/磁磚背景色
 TCDI_TITLE_TEXT = "泰倫戰術資本部署介面 (T.C.D.I.)"
 
 # 投資標的與對應的 Yahoo Finance 代號
@@ -34,7 +34,7 @@ ALLOCATION_WEIGHTS = {
 FEE_RATE_DEFAULT = 0.001425
 MIN_FEE = 1
 
-# --- 0. CSS 注入：新配色與統一主題 (V11 - 引入 sub-card-tile 結構) ---
+# --- 0. CSS 注入：字體加大與統一主題 (V12) ---
 
 st.markdown(f"""
 <style>
@@ -55,16 +55,16 @@ h1 {{
     padding-top: 1rem; 
 }}
 
-/* -------------------- 次級卡片 (Metric Tile) 樣式 V11 -------------------- */
+/* -------------------- 次級卡片 (Metric Tile) 樣式 V12 -------------------- */
 /* 用於所有數據指標 (總覽與細項) 的標準背景磁磚 */
 .sub-card-tile {{
     background: {TILE_BG}; 
     border-radius: 8px;
-    padding: 1rem;
+    padding: 1.2rem; /* 增加內邊距以適應大字體 */
     height: 100%;
-    margin-bottom: 1rem; /* 確保磁磚間有間隔 */
+    margin-bottom: 1rem; 
     transition: all 0.2s ease-in-out;
-    border: 1px solid rgba(255, 255, 255, 0.05); /* 微弱邊框 */
+    border: 1px solid rgba(255, 255, 255, 0.05); 
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); 
 }}
 
@@ -72,7 +72,7 @@ h1 {{
 .highlight-tile {{
     background: {TILE_BG}; 
     border-radius: 8px;
-    padding: 1rem;
+    padding: 1.2rem; /* 增加內邊距以適應大字體 */
     height: 100%;
     margin-bottom: 1rem;
     
@@ -82,9 +82,9 @@ h1 {{
     box-shadow: 0 0 15px rgba(233, 150, 122, 0.5); 
 }}
 
-/* -------------------- 文字與數值樣式 -------------------- */
+/* -------------------- 文字與數值樣式 V12 - 字體加大 -------------------- */
 .label-text {{
-    font-size: 0.85em;
+    font-size: 0.9em; /* 標籤字體略微加大 */
     color: {LABEL_COLOR};
     font-weight: 500;
     margin-bottom: 0.5rem;
@@ -92,24 +92,29 @@ h1 {{
     text-transform: uppercase;
 }}
 
-.value-text-main {{
+/* 標準數值：用於總覽和非重點的細項 */
+.value-text-regular {{
     color: {TEXT_COLOR};
-    font-size: 1.5em;
+    font-size: 1.8em; /* 從 1.5em 放大到 1.8em */
     font-weight: bold;
 }}
 
 /* 強調數值：用於建議股數 */
 .value-text-highlight {{
     color: {ACCENT_COLOR}; 
-    font-size: 2.0em;
+    font-size: 2.5em; /* 從 2.0em 放大到 2.5em */
     font-weight: 900;
     text-shadow: 0 0 8px rgba(233, 150, 122, 0.5);
+    line-height: 1; /* 調整行高以避免數值頂部被截斷 */
 }}
-.value-text-regular {{
-    color: {TEXT_COLOR};
-    font-size: 1.5em;
+
+/* 剩餘彈藥數值 (使用 regular 大小，但調整顏色) */
+.value-text-remaining {{
+    font-size: 1.8em; 
     font-weight: bold;
+    line-height: 1.2;
 }}
+
 
 /* Section Header (主色風格標頭) */
 .card-section-header {{
@@ -129,7 +134,7 @@ h1 {{
     font-weight: 600;
     font-size: 1.1em;
     padding: 0.5rem 0 0.5rem 0.5rem;
-    margin-top: 1.5rem; /* 增加與上方區塊的間距 */
+    margin-top: 1.5rem; 
     margin-bottom: 0.8rem;
     border-bottom: 1px dashed rgba(233, 150, 122, 0.5);
 }}
@@ -302,7 +307,7 @@ def render_budget_metrics(total_budget, total_spent):
         st.markdown(f"""
         <div class='sub-card-tile'>
             <div class='label-text'>💰 總分配資本 (Total Capital)</div>
-            <div class='value-text-main'>TWD {total_budget:,.0f}</div>
+            <div class='value-text-regular'>TWD {total_budget:,.0f}</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -310,7 +315,7 @@ def render_budget_metrics(total_budget, total_spent):
         st.markdown(f"""
         <div class='sub-card-tile'>
             <div class='label-text'>📊 預估部署成本 (Estimated Cost)</div>
-            <div class='value-text-main'>TWD {total_spent:,.2f}</div>
+            <div class='value-text-regular'>TWD {total_spent:,.2f}</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -318,7 +323,7 @@ def render_budget_metrics(total_budget, total_spent):
         st.markdown(f"""
         <div class='sub-card-tile'>
             <div class='label-text'>{remaining_icon} 剩餘彈藥 (Remaining Budget)</div>
-            <div style='color: {remaining_color}; font-size: 1.5em; font-weight: bold;'>TWD {remaining:,.2f}</div>
+            <div class='value-text-remaining' style='color: {remaining_color};'>TWD {remaining:,.2f}</div>
         </div>
         """, unsafe_allow_html=True)
     
@@ -347,13 +352,10 @@ def render_ticker_results_and_breakdown(results_list):
                 tile_class = 'highlight-tile' if style_type == 'highlight' else 'sub-card-tile'
                 value_class = 'value-text-highlight' if style_type == 'highlight' else 'value-text-regular'
                 
-                # 股數使用 2.0em, 其他使用 1.5em
-                font_size = "2.0em" if style_type == 'highlight' else "1.5em"
-
                 st.markdown(f"""
                 <div class='{tile_class}'>
                     <div class='label-text'>{label}</div>
-                    <div class='{value_class}' style='font-size: {font_size};'>{value}</div>
+                    <div class='{value_class}'>{value}</div>
                 </div>
                 """, unsafe_allow_html=True)
 
