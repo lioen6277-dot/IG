@@ -22,9 +22,9 @@ RECOMMENDED_UNITS_LABEL = "建議生產單位數"
 TOTAL_DEPLOYMENT_COST_LABEL = "部署總開支"
 TARGET_FUND_ALLOCATION_LABEL = "目標資金配給"
 UNIT_COST_LABEL = "單位造價 (含溢價)" 
-MARKET_PRICE_LABEL = "當前市價 (參考)" 
-PRICE_BUFFER_LABEL = "價格緩衝溢價 (TWD)" # 新增標籤
-LOGISTICS_FEE_LABEL = "輸送燃料費"
+# MARKET_PRICE_LABEL = "當前市價 (參考)" # 移除
+# PRICE_BUFFER_LABEL = "價格緩衝溢價 (TWD)" # 移除
+# LOGISTICS_FEE_LABEL = "輸送燃料費" # 移除
 DEPLOYMENT_TARGET_LABEL = "🛡️ 部署目標: {code} ({ratio})"
 DEPLOYMENT_PRINCIPLE_FOOTER = "📌 T.A.C.C. 部署原則：優先確保買入單位數最大化，且總成本 **嚴格不超過** 分配預算。交易燃料費最低 {MIN_FEE} 元計算。"
 
@@ -33,6 +33,7 @@ CALIBRATION_HEADER = "⚙️ 戰術數據校準 (價格與緩衝設定)"
 TARGET_DESIGNATION_LABEL = "🎯 戰場目標代號"
 STRATEGIC_RATIO_LABEL = "戰略配置比例"
 DEFAULT_UNIT_COST_LABEL = "當前市價單價 (TWD)" 
+PRICE_BUFFER_LABEL_SC = "價格緩衝溢價 (TWD)" # 校準區塊的溢價標籤
 DATA_SYNC_SPINNER = '正在從聯邦情報網絡獲取最新戰術報價...'
 DATA_SYNC_INFO = "🌐 數據鏈同步時間：{fetch_time} (戰術報價資訊每 60 秒自動刷新)"
 DATA_FETCH_WARNING = "⚠️ 警告：戰術報價數據鏈中斷，所有價格已設為 0。請手動輸入造價以進行準確計算！"
@@ -62,9 +63,9 @@ DEFAULT_BUDGET = 3000
 
 # 針對不同標的設定的預設緩衝溢價
 DEFAULT_BUFFERS = {
-    "009813": 0.10, # 中低流動性，給予較高緩衝
-    "0050": 0.05,  # 高流動性，給予標準緩衝
-    "00878": 0.05, # 高流動性，給予標準緩衝
+    "009813": 0.10, 
+    "0050": 0.10,  
+    "00878": 0.10, 
 }
 
 
@@ -248,7 +249,7 @@ def get_current_prices(ticker_map):
 
     return prices, fetch_time
 
-# --- 核心計算邏輯更新：使用每檔標的專屬的 price_buffer ---
+# --- 核心計算邏輯不變 ---
 def calculate_investment(edited_df, total_budget, fee_rate, min_fee):
     results_list = []
     total_spent = 0.0
@@ -256,8 +257,8 @@ def calculate_investment(edited_df, total_budget, fee_rate, min_fee):
     for _, row in edited_df.iterrows():
         code = row["標的代號"]
         weight = row["設定比例"]
-        market_price = row["當前價格 (自動獲取)"] # 當前市場價格
-        price_buffer = row["價格緩衝溢價"]      # 該標的專屬溢價
+        market_price = row["當前價格 (自動獲取)"]
+        price_buffer = row["價格緩衝溢價"]
         allocated_budget = total_budget * weight
 
         # 使用市場價格加上緩衝溢價，作為計算股數和檢查預算的有效造價
@@ -277,7 +278,7 @@ def calculate_investment(edited_df, total_budget, fee_rate, min_fee):
                 "建議股數": 0,
                 "預估手續費": 0,
                 "總成本": 0.0,
-                "緩衝溢價": price_buffer, # 新增
+                "緩衝溢價": price_buffer,
             })
             continue
 
@@ -318,14 +319,14 @@ def calculate_investment(edited_df, total_budget, fee_rate, min_fee):
             "建議股數": shares_to_buy,
             "預估手續費": estimated_fee,
             "總成本": round(conservative_total_cost, 2), # 這是用於預算控制的保守總成本
-            "緩衝溢價": price_buffer, # 新增
+            "緩衝溢價": price_buffer, 
         })
 
     return results_list, round(total_spent, 2)
 
 
 def render_budget_metrics(total_budget, total_spent):
-    
+    # (預算總覽渲染邏輯不變)
     st.markdown(f"<div class='card-section-header'>{RESOURCE_READINESS_HEADER}</div>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns(3)
     
@@ -360,7 +361,7 @@ def render_budget_metrics(total_budget, total_spent):
         </div>
         """, unsafe_allow_html=True)
 
-# --- 部署結果顯示更新：加入價格緩衝溢價 ---
+# --- 部署結果顯示更新：簡化為 4 個核心指標 ---
 def render_ticker_results_and_breakdown(results_list):
     
     st.markdown(f"<div class='card-section-header'>{DEPLOYMENT_HEADER}</div>", unsafe_allow_html=True)
@@ -369,24 +370,19 @@ def render_ticker_results_and_breakdown(results_list):
         st.markdown(f"<div class='ticker-group-header-sc'>{DEPLOYMENT_TARGET_LABEL.format(code=item['標的代號'], ratio=item['比例'])}</div>", unsafe_allow_html=True)
 
         total_cost_display = item['總成本']
-        market_price = item['市場價格'] 
         effective_price = item['有效造價'] 
-        price_buffer = item['緩衝溢價']
 
-        # 顯示 6 個指標
+        # 顯示 4 個核心指標
         metrics = [
             (RECOMMENDED_UNITS_LABEL, item['建議股數'], "highlight"),
             (TOTAL_DEPLOYMENT_COST_LABEL, f"TWD {total_cost_display:,.2f}", "regular"), 
             (TARGET_FUND_ALLOCATION_LABEL, f"TWD {item['分配金額']:,.0f}", "regular"),
             (UNIT_COST_LABEL, f"TWD {effective_price:,.2f}", "regular"), 
-            (MARKET_PRICE_LABEL, f"TWD {market_price:,.2f}", "regular"),
-            (PRICE_BUFFER_LABEL, f"TWD {price_buffer:,.2f}", "regular"), # 顯示緩衝溢價
-            (LOGISTICS_FEE_LABEL, f"TWD {item['預估手續費']:,.0f}", "regular"),
         ]
 
-        # 調整欄位數量以容納新增的指標
-        col1, col2, col3, col4, col5, col6, col7 = st.columns(7)
-        cols = [col1, col2, col3, col4, col5, col6, col7]
+        # 使用 4 欄佈局
+        col1, col2, col3, col4 = st.columns(4)
+        cols = [col1, col2, col3, col4]
         
         for i, (label, value, style_type) in enumerate(metrics):
             with cols[i]:
@@ -401,7 +397,7 @@ def render_ticker_results_and_breakdown(results_list):
                 """, unsafe_allow_html=True)
 
 
-# --- 戰術數據校準 (價格與緩衝設定) 更新 ---
+# --- 戰術數據校準 (價格與緩衝設定) 保持不變 ---
 def render_ticker_settings(ticker_map, allocation_weights, prices_ready=True):
     
     st.markdown(f"<div class='card-section-header'>{CALIBRATION_HEADER}</div>", unsafe_allow_html=True)
@@ -418,7 +414,7 @@ def render_ticker_settings(ticker_map, allocation_weights, prices_ready=True):
     with cols_header[2]:
         st.markdown(f"<div class='label-text'>{DEFAULT_UNIT_COST_LABEL}</div>", unsafe_allow_html=True)
     with cols_header[3]:
-        st.markdown(f"<div class='label-text'>{PRICE_BUFFER_LABEL}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='label-text'>{PRICE_BUFFER_LABEL_SC}</div>", unsafe_allow_html=True)
 
     for code in ticker_map.keys():
         weight = allocation_weights[code]
@@ -535,7 +531,7 @@ data_for_calc = {
     "標的代號": list(TICKER_MAP.keys()),
     "設定比例": [safe_weights[code] for code in TICKER_MAP.keys()],
     "當前價格 (自動獲取)": [st.session_state.editable_prices[code] for code in TICKER_MAP.keys()],
-    "價格緩衝溢價": [st.session_state.ticker_buffers[code] for code in TICKER_MAP.keys()], # 新增緩衝溢價
+    "價格緩衝溢價": [st.session_state.ticker_buffers[code] for code in TICKER_MAP.keys()],
 }
 edited_df = pd.DataFrame(data_for_calc)
 
