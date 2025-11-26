@@ -6,6 +6,7 @@ import time
 
 TACC_TITLE_TEXT = "泰倫戰術指揮中心 (T.A.C.C.)"
 
+# --- 基礎設定與常數 ---
 TOTAL_CAPITAL_LABEL = "💰 總戰備資金"
 ESTIMATED_COST_LABEL = "📊 預計軍備開支"
 REMAINING_FUNDS_LABEL = "現存資金餘額"
@@ -15,30 +16,32 @@ BUDGET_INPUT_LABEL = "每月行動預算 (TWD)"
 FEE_RATE_INPUT_LABEL = "輸送燃料費率 (0.xxxxxx)" 
 MIN_FEE_CAPTION = "💡 最低燃料費為 **{MIN_FEE}** 元 / 筆。請使用 **小數** 格式輸入。"
 
+# --- 新增的緩衝溢價設定 ---
+PRICE_BUFFER_INPUT_LABEL = "價格緩衝溢價 (TWD)"
+DEFAULT_PRICE_BUFFER = 0.1 
+PRICE_BUFFER_CAPTION = "訂單成交價可能高於市價。此溢價會計入成本，用於確保總開支在預算內。"
+
+# --- 部署指令與結果 ---
 DEPLOYMENT_HEADER = "✨ 軍事單位部署指令"
 RECOMMENDED_UNITS_LABEL = "建議生產單位數"
 TOTAL_DEPLOYMENT_COST_LABEL = "部署總開支"
 TARGET_FUND_ALLOCATION_LABEL = "目標資金配給"
-UNIT_COST_LABEL = "單位造價"
+UNIT_COST_LABEL = "單位造價 (含溢價)" # 更新標籤
+MARKET_PRICE_LABEL = "當前市價 (參考)" # 新增標籤
 LOGISTICS_FEE_LABEL = "輸送燃料費"
 DEPLOYMENT_TARGET_LABEL = "🛡️ 部署目標: {code} ({ratio})"
 DEPLOYMENT_PRINCIPLE_FOOTER = "📌 T.A.C.C. 部署原則：優先確保買入單位數最大化，且總成本 **嚴格不超過** 分配預算。交易燃料費最低 {MIN_FEE} 元計算。"
 
+# --- 校準數據 ---
 CALIBRATION_HEADER = "⚙️ 戰術數據校準"
 TARGET_DESIGNATION_LABEL = "🎯 戰場目標代號"
 STRATEGIC_RATIO_LABEL = "戰略配置比例"
-DEFAULT_UNIT_COST_LABEL = "預設造價單價 (TWD)"
+DEFAULT_UNIT_COST_LABEL = "當前市價單價 (TWD)" # 更新標籤
 DATA_SYNC_SPINNER = '正在從聯邦情報網絡獲取最新戰術報價...'
 DATA_SYNC_INFO = "🌐 數據鏈同步時間：{fetch_time} (戰術報價資訊每 60 秒自動刷新)"
 DATA_FETCH_WARNING = "⚠️ 警告：戰術報價數據鏈中斷，所有價格已設為 0。請手動輸入造價以進行準確計算！"
 
-
-st.set_page_config(
-    page_title=TACC_TITLE_TEXT,
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
-
+# --- 核心參數 ---
 MAIN_COLOR = "#cf6955"    
 ACCENT_COLOR = "#e9967a"  
 TEXT_COLOR = "#ffffff"
@@ -61,6 +64,14 @@ FEE_RATE_DEFAULT = 0.001425
 MIN_FEE = 1
 DEFAULT_BUDGET = 3000 
 
+
+st.set_page_config(
+    page_title=TACC_TITLE_TEXT,
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# 樣式定義 (保持不變)
 st.markdown(f"""
 <style>
 .stApp {{
@@ -68,7 +79,6 @@ st.markdown(f"""
     color: {TEXT_COLOR};
     background-color: #0e1117; 
 }}
-
 h1 {{
     font-size: 2.2em !important;
     color: {MAIN_COLOR} !important;
@@ -77,7 +87,6 @@ h1 {{
     text-shadow: 0 0 5px rgba(207, 105, 85, 0.5);
     padding-top: 1rem; 
 }}
-
 .sub-card-tile {{
     background: {TILE_BG}; 
     border-radius: 8px;
@@ -88,18 +97,15 @@ h1 {{
     border: 1px solid rgba(255, 255, 255, 0.05); 
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); 
 }}
-
 .highlight-tile {{
     background: {TILE_BG}; 
     border-radius: 8px;
     padding: 1.2rem; 
     height: 100%;
     margin-bottom: 1rem;
-    
     border: 2px solid {ACCENT_COLOR}; 
     box-shadow: 0 0 15px rgba(233, 150, 122, 0.5); 
 }}
-
 .label-text {{
     font-size: 0.9em; 
     color: {LABEL_COLOR};
@@ -108,13 +114,11 @@ h1 {{
     line-height: 1.2;
     text-transform: uppercase;
 }}
-
 .value-text-regular {{
     color: {TEXT_COLOR};
     font-size: 1.7em; 
     font-weight: bold;
 }}
-
 .value-text-highlight {{
     color: {ACCENT_COLOR}; 
     font-size: 2.3em; 
@@ -122,20 +126,17 @@ h1 {{
     text-shadow: 0 0 8px rgba(233, 150, 122, 0.5);
     line-height: 1; 
 }}
-
 .value-text-remaining {{
     font-size: 1.7em; 
     font-weight: bold;
     line-height: 1.2;
 }}
-
 .value-text-setting {{
     color: {TEXT_COLOR};
     font-size: 1.4em; 
     font-weight: 700;
     margin-top: 0.25rem;
 }}
-
 .card-section-header {{
     color: {MAIN_COLOR};
     font-weight: bold;
@@ -146,7 +147,6 @@ h1 {{
     border-bottom: 2px solid {MAIN_COLOR};
     text-transform: uppercase;
 }}
-
 .ticker-group-header-sc {{
     color: {ACCENT_COLOR};
     font-weight: 600;
@@ -156,7 +156,6 @@ h1 {{
     margin-bottom: 0.8rem;
     border-bottom: 1px dashed rgba(233, 150, 122, 0.5);
 }}
-
 .stNumberInput > div > div {{
     background-color: #2e2e2e; 
     border: none;
@@ -174,7 +173,6 @@ h1 {{
     font-weight: bold;
     font-size: 1.3em; 
 }}
-
 div[role="alert"] {{
     background-color: rgba(207, 105, 85, 0.15) !important;
     border-left: 5px solid {MAIN_COLOR} !important;
@@ -184,7 +182,6 @@ div[role="alert"] {{
     margin-bottom: 0.5rem !important;
     padding-left: 1rem; 
 }}
-
 .stSidebar > div:first-child {{
     background-color: {DARK_BG};
     border-right: 2px solid {MAIN_COLOR};
@@ -203,13 +200,13 @@ div[role="alert"] {{
     color: {LABEL_COLOR} !important;
     font-size: 0.8em;
 }}
-
 </style>
 """, unsafe_allow_html=True)
 
 
 @st.cache_data(ttl=60)
 def get_current_prices(ticker_map):
+    # (價格獲取邏輯不變)
     prices = {}
     fetch_time = datetime.now()
     tickers = list(ticker_map.values())
@@ -218,6 +215,7 @@ def get_current_prices(ticker_map):
         prices[code] = 0.0
 
     try:
+        # 嘗試從 yfinance 獲取數據
         data = yf.download(tickers, period="1d", interval="1m", progress=False, timeout=8)
 
         if data.empty:
@@ -248,25 +246,30 @@ def get_current_prices(ticker_map):
 
     return prices, fetch_time
 
-def calculate_investment(edited_df, total_budget, fee_rate, min_fee):
+# --- 核心計算邏輯更新：新增 price_buffer 參數 ---
+def calculate_investment(edited_df, total_budget, fee_rate, min_fee, price_buffer):
     results_list = []
     total_spent = 0.0
 
     for _, row in edited_df.iterrows():
         code = row["標的代號"]
         weight = row["設定比例"]
-        price = row["當前價格 (自動獲取)"] 
+        market_price = row["當前價格 (自動獲取)"] # 當前市場價格
         allocated_budget = total_budget * weight
+
+        # 使用市場價格加上緩衝溢價，作為計算股數和檢查預算的有效造價
+        effective_price = market_price + price_buffer
 
         shares_to_buy = 0
         estimated_fee = 0
-        total_cost = 0.0
+        conservative_total_cost = 0.0
 
-        if price <= 0.0001 or allocated_budget <= 0:
+        if effective_price <= 0.0001 or allocated_budget <= 0:
             results_list.append({
                 "標的代號": code,
                 "比例": f"{weight*100:.0f}%",
-                "價格": price,
+                "市場價格": market_price,
+                "有效造價": effective_price,
                 "分配金額": allocated_budget,
                 "建議股數": 0,
                 "預估手續費": 0,
@@ -274,7 +277,8 @@ def calculate_investment(edited_df, total_budget, fee_rate, min_fee):
             })
             continue
 
-        max_shares_theoretical = int(allocated_budget / price)
+        # 以保守造價計算最大理論股數
+        max_shares_theoretical = int(allocated_budget / effective_price)
         shares = 0
 
         for s in range(max_shares_theoretical, -1, -1):
@@ -282,31 +286,38 @@ def calculate_investment(edited_df, total_budget, fee_rate, min_fee):
                 shares = 0
                 break
 
-            trade_value = s * price
-            fee_calculated = trade_value * fee_rate
+            # 1. 計算在保守造價下的交易價值
+            trade_value_conservative = s * effective_price
+            
+            # 2. 計算保守手續費 (基於保守造價計算，確保預算安全)
+            fee_calculated = trade_value_conservative * fee_rate
             current_fee = max(min_fee, round(fee_calculated))
-            current_cost = trade_value + current_fee
+            
+            # 3. 計算用於預算檢查的保守總成本
+            cost_for_budget_check = trade_value_conservative + current_fee
 
-            if current_cost <= allocated_budget:
+            if cost_for_budget_check <= allocated_budget:
                 shares = s
                 estimated_fee = current_fee
-                total_cost = current_cost
+                conservative_total_cost = cost_for_budget_check
                 break
 
         shares_to_buy = shares
 
-        total_spent += total_cost
+        total_spent += conservative_total_cost
         results_list.append({
             "標的代號": code,
             "比例": f"{weight*100:.0f}%",
-            "價格": price,
+            "市場價格": market_price,
+            "有效造價": effective_price,
             "分配金額": allocated_budget,
             "建議股數": shares_to_buy,
             "預估手續費": estimated_fee,
-            "總成本": round(total_cost, 2), 
+            "總成本": round(conservative_total_cost, 2), # 這是用於預算控制的保守總成本
         })
 
     return results_list, round(total_spent, 2)
+
 
 def render_budget_metrics(total_budget, total_spent):
     
@@ -344,6 +355,7 @@ def render_budget_metrics(total_budget, total_spent):
         </div>
         """, unsafe_allow_html=True)
 
+# --- 部署結果顯示更新：加入市場價格和有效造價 ---
 def render_ticker_results_and_breakdown(results_list):
     
     st.markdown(f"<div class='card-section-header'>{DEPLOYMENT_HEADER}</div>", unsafe_allow_html=True)
@@ -352,18 +364,24 @@ def render_ticker_results_and_breakdown(results_list):
         st.markdown(f"<div class='ticker-group-header-sc'>{DEPLOYMENT_TARGET_LABEL.format(code=item['標的代號'], ratio=item['比例'])}</div>", unsafe_allow_html=True)
 
         total_cost_display = item['總成本']
+        market_price = item['市場價格'] 
+        effective_price = item['有效造價'] 
 
+        # 顯示 6 個指標
         metrics = [
             (RECOMMENDED_UNITS_LABEL, item['建議股數'], "highlight"),
-            (UNIT_COST_LABEL, f"TWD {item['價格']:,.2f}", "regular"),
-            (LOGISTICS_FEE_LABEL, f"TWD {item['預估手續費']:,.0f}", "regular"),
             (TOTAL_DEPLOYMENT_COST_LABEL, f"TWD {total_cost_display:,.2f}", "regular"), 
             (TARGET_FUND_ALLOCATION_LABEL, f"TWD {item['分配金額']:,.0f}", "regular"),
+            (UNIT_COST_LABEL, f"TWD {effective_price:,.2f}", "regular"), # 單位造價 (含溢價)
+            (MARKET_PRICE_LABEL, f"TWD {market_price:,.2f}", "regular"), # 當前市價 (參考)
+            (LOGISTICS_FEE_LABEL, f"TWD {item['預估手續費']:,.0f}", "regular"),
         ]
 
-        col1, col2, col3, col4, col5 = st.columns(5)
+        col1, col2, col3, col4, col5, col6 = st.columns(6)
+        cols = [col1, col2, col3, col4, col5, col6]
+        
         for i, (label, value, style_type) in enumerate(metrics):
-            with [col1, col2, col3, col4, col5][i]:
+            with cols[i]:
                 tile_class = 'highlight-tile' if style_type == 'highlight' else 'sub-card-tile'
                 value_class = 'value-text-highlight' if style_type == 'highlight' else 'value-text-regular'
                 
@@ -405,6 +423,7 @@ def render_ticker_settings(ticker_map, allocation_weights, prices_ready=True):
         with col_price:
             st.markdown(f"<div class='label-text' style='margin-bottom: 0;'>{DEFAULT_UNIT_COST_LABEL}</div>", unsafe_allow_html=True)
 
+            # 此處輸入代表當前市價
             new_price = st.number_input(
                 label=f"Price_Input_{code}",
                 min_value=0.0001,
@@ -425,6 +444,7 @@ def check_allocation_sum(weights):
 
 st.title(TACC_TITLE_TEXT)
 
+# --- 數據同步與初始化 ---
 prices_ready = True
 with st.spinner(DATA_SYNC_SPINNER):
     current_prices, fetch_time = get_current_prices(TICKER_MAP)
@@ -439,6 +459,7 @@ else:
              st.session_state.editable_prices[code] = price
 
 
+# --- 側邊欄輸入：預算、費率、緩衝溢價 ---
 st.sidebar.header(BUDGET_SIDEBAR_HEADER)
 total_budget = st.sidebar.number_input(
     BUDGET_INPUT_LABEL,
@@ -457,6 +478,18 @@ fee_rate = st.sidebar.number_input(
 )
 st.sidebar.caption(MIN_FEE_CAPTION.format(MIN_FEE=MIN_FEE))
 
+# 價格緩衝溢價 (新功能)
+st.sidebar.markdown("<div style='margin-top: 1.5rem;'></div>", unsafe_allow_html=True)
+price_buffer = st.sidebar.number_input(
+    PRICE_BUFFER_INPUT_LABEL,
+    min_value=0.0,
+    value=DEFAULT_PRICE_BUFFER,
+    step=0.01,
+    format="%.2f"
+)
+st.sidebar.caption(PRICE_BUFFER_CAPTION)
+
+
 if not check_allocation_sum(ALLOCATION_WEIGHTS):
     st.sidebar.error("❌ 警告：所有標的分配比例總和不等於 100%。請修正 `ALLOCATION_WEIGHTS` 變量。")
     safe_weights = {k: v / sum(ALLOCATION_WEIGHTS.values()) for k, v in ALLOCATION_WEIGHTS.items()}
@@ -465,8 +498,10 @@ else:
 
 st.info(DATA_SYNC_INFO.format(fetch_time=fetch_time.strftime('%Y-%m-%d %H:%M:%S')))
 
+# 戰術數據校準 (價格設定)
 render_ticker_settings(TICKER_MAP, safe_weights, prices_ready)
 
+# 準備計算數據
 data_for_calc = {
     "標的代號": list(TICKER_MAP.keys()),
     "設定比例": [safe_weights[code] for code in TICKER_MAP.keys()],
@@ -474,8 +509,10 @@ data_for_calc = {
 }
 edited_df = pd.DataFrame(data_for_calc)
 
-results_list, total_spent = calculate_investment(edited_df, total_budget, fee_rate, MIN_FEE)
+# 執行核心計算：傳入價格緩衝溢價
+results_list, total_spent = calculate_investment(edited_df, total_budget, fee_rate, MIN_FEE, price_buffer)
 
+# 渲染結果
 render_budget_metrics(total_budget, total_spent)
 
 render_ticker_results_and_breakdown(results_list)
