@@ -4,42 +4,42 @@ import yfinance as yf
 from datetime import datetime
 import time
 
-# 應用程式主要標題
-APP_TITLE_TEXT = "ETF 投資模擬與分配計算器"
+# 應用程式主要標題 (泰倫風格)
+APP_TITLE_TEXT = "泰倫聯邦：星區資源部署系統 (T.C.R.D.S.)"
 
-# --- 基礎設定與常數 (標準中文命名) ---
-TOTAL_CAPITAL_LABEL = "💰 總戰備資金"
-ESTIMATED_COST_LABEL = "📊 預計軍備開支"
-REMAINING_FUNDS_LABEL = "現存資金餘額"
-RESOURCE_READINESS_HEADER = "💰 資金總覽"
-BUDGET_SIDEBAR_HEADER = "⚙️ 參數設定與調整"
-BUDGET_INPUT_LABEL = "每月行動預算 (TWD)" 
-FEE_RATE_INPUT_LABEL = "有效券商手續費率 (已打折，0.xxxxxx)" 
-MIN_FEE_CAPTION = "💡 零股 (<1000股) 最低手續費為 **{MIN_FEE}** 元；整股 (≥1000股) 最低收費為 **20** 元。"
+# --- 基礎設定與常數 (星海/繁中風格) ---
+TOTAL_CAPITAL_LABEL = "C-14 總備用晶礦"
+ESTIMATED_COST_LABEL = "預計軍火消耗"
+REMAINING_FUNDS_LABEL = "剩餘能源庫存"
+RESOURCE_READINESS_HEADER = "礦物/瓦斯戰情總覽"
+BUDGET_SIDEBAR_HEADER = "⚙️ 戰術部隊參數設定"
+BUDGET_INPUT_LABEL = "每月戰術部署上限 (TWD)" 
+FEE_RATE_INPUT_LABEL = "物流運輸淨損耗率 (0.xxxxxx)" 
+MIN_FEE_CAPTION = "💡 零股 (<1000股) 適用 **{MIN_FEE}** 元最低協議物流費用；整股 (≥1000股) 最低收費為 **20** 元。"
 
-# --- 部署指令與結果 (標準中文命名) ---
-DEPLOYMENT_HEADER = "✨ 投資分配與建議"
-RECOMMENDED_UNITS_LABEL = "建議買入股數" 
-TOTAL_DEPLOYMENT_COST_LABEL = "實際總成本" 
-TARGET_FUND_ALLOCATION_LABEL = "目標預計分配金額"
-UNIT_COST_LABEL = "單位買入價格 (含緩衝)" 
-LOGISTICS_FEE_LABEL = "預估手續費" 
-DEPLOYMENT_TARGET_LABEL = "🎯 投資標的: {code} ({ratio})"
-DEPLOYMENT_PRINCIPLE_FOOTER = "📌 計算原則：在預算內買入單位數最大化。手續費：零股低消 {MIN_FEE} 元，整股低消 20 元。賣出時需另計 0.3% 交易稅。"
+# --- 部署指令與結果 (星海/繁中風格) ---
+DEPLOYMENT_HEADER = "✨ 作戰部隊分配建議"
+RECOMMENDED_UNITS_LABEL = "部署單位數量" 
+TOTAL_DEPLOYMENT_COST_LABEL = "最終戰損開支" 
+TARGET_FUND_ALLOCATION_LABEL = "目標戰區晶礦配給"
+UNIT_COST_LABEL = "戰術單位招募單價 (含議價)" 
+LOGISTICS_FEE_LABEL = "預估物流補給費" 
+DEPLOYMENT_TARGET_LABEL = "🎯 戰區目標: {code} ({ratio})"
+DEPLOYMENT_PRINCIPLE_FOOTER = "📌 作戰準則：在預算內最大化單位數量。物流費用：零股低消 {MIN_FEE} 元，整股低消 20 元。出售時需另計 0.3% 聯邦交易稅。"
 
-# --- 校準數據 (標準中文命名) ---
-CALIBRATION_HEADER = "⚙️ 價格與緩衝設定"
+# --- 校準數據 (星海/繁中風格) ---
+CALIBRATION_HEADER = "⚙️ 市場偵測與議價設定"
 TARGET_DESIGNATION_LABEL = "🎯 標的代號"
-STRATEGIC_RATIO_LABEL = "配置比例"
-DEFAULT_UNIT_COST_LABEL = "當前市價單價 (TWD)" 
-PRICE_BUFFER_LABEL_SC = "價格緩衝溢價 (TWD)"
-DATA_SYNC_SPINNER = '正在從市場獲取最新報價...'
-DATA_SYNC_INFO = "🌐 數據同步時間：{fetch_time} (報價資訊每 60 秒自動刷新)"
-DATA_FETCH_WARNING = "⚠️ 警告：報價數據鏈中斷或無法獲取。所有價格已暫設為 0.01 元，請您手動輸入當前市價以確保計算準確！"
+STRATEGIC_RATIO_LABEL = "作戰區域配比"
+DEFAULT_UNIT_COST_LABEL = "偵測到當前市場單價 (TWD)" 
+PRICE_BUFFER_LABEL_SC = "超額訂購溢價 (TWD)"
+DATA_SYNC_SPINNER = '星區雷達正在獲取最新資源報價...'
+DATA_SYNC_INFO = "🌐 資料鏈同步時間：{fetch_time} (雷達數據每 60 秒自動刷新)"
+DATA_FETCH_WARNING = "⚠️ 紅色警報：星區資料鏈傳輸中斷或無法獲取。所有價格已暫設為 0.01 元，請您手動輸入當前市場單價以確保部署準確！"
 
-# --- 核心參數 ---
-MAIN_COLOR = "#cf6955"    
-ACCENT_COLOR = "#e9967a"  
+# --- 核心參數 (保持不變，顏色偏向 Terran 的橘紅與鋼鐵色) ---
+MAIN_COLOR = "#cf6955"    # 橘紅色 (Terran accent)
+ACCENT_COLOR = "#e9967a"  # 亮橘色
 TEXT_COLOR = "#ffffff"
 LABEL_COLOR = "#b0b0b0"
 DARK_BG = "#1a1a1a"
@@ -56,13 +56,12 @@ ALLOCATION_WEIGHTS = {
     "0050": 0.30,
     "00878": 0.20
 }
-# 根據用戶規則更新：牌價 0.1425% 打 6 折 = 0.000855
-FEE_RATE_DEFAULT = 0.000855 # 預設有效費率 (已打 6 折: 0.1425% * 0.6)
-MIN_FEE_ODD = 1  # 零股低消 (用戶設定，預設 1 元)
+# 根據用戶規則：牌價 0.1425% 打 6 折 = 0.000855
+FEE_RATE_DEFAULT = 0.000855 
+MIN_FEE_ODD = 1  # 零股低消
 MIN_FEE_REGULAR = 20 # 整股低消
 DEFAULT_BUDGET = 3000 
 
-# 針對不同標的設定的預設緩衝溢價
 DEFAULT_BUFFERS = {
     "009813": 0.10, 
     "0050": 0.10,  
@@ -76,7 +75,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 樣式定義 (保持不變)
+# 樣式定義 (保持 Terran 風格的配色與陰影)
 st.markdown(f"""
 <style>
 .stApp {{
@@ -347,7 +346,7 @@ def calculate_investment(edited_df, total_budget, fee_rate, min_fee_odd):
 
 
 def render_budget_metrics(total_budget, total_spent):
-    """渲染資金總覽卡片"""
+    """渲染資金總覽卡片 (星海風格)"""
     st.markdown(f"<div class='card-section-header'>{RESOURCE_READINESS_HEADER}</div>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns(3)
     
@@ -356,7 +355,7 @@ def render_budget_metrics(total_budget, total_spent):
     total_spent_display = round(total_spent) 
 
     remaining_color = ACCENT_COLOR if remaining > 0 else MAIN_COLOR
-    remaining_icon = "✅" if remaining > 0 else "⚠️"
+    remaining_icon = "✅" if remaining > 0 else "🚨" # 警告圖標
 
     with col1:
         st.markdown(f"""
@@ -383,7 +382,7 @@ def render_budget_metrics(total_budget, total_spent):
         """, unsafe_allow_html=True)
 
 def render_ticker_results_and_breakdown(results_list):
-    """渲染每個標的的建議結果和細項分解"""
+    """渲染每個標的的建議結果和細項分解 (星海風格)"""
     st.markdown(f"<div class='card-section-header'>{DEPLOYMENT_HEADER}</div>", unsafe_allow_html=True)
 
     for item in results_list:
@@ -392,7 +391,7 @@ def render_ticker_results_and_breakdown(results_list):
         total_cost_display = item['總成本']
         effective_price = item['有效造價'] 
 
-        # 使用標準的中文標籤
+        # 使用星海風格標籤
         metrics = [
             (RECOMMENDED_UNITS_LABEL, item['建議股數'], "highlight"),
             (UNIT_COST_LABEL, f"TWD {effective_price:,.2f}", "regular"),
@@ -416,7 +415,7 @@ def render_ticker_results_and_breakdown(results_list):
 
 
 def render_ticker_settings(ticker_map, allocation_weights, prices_ready=True):
-    """渲染價格和緩衝設定的表格介面"""
+    """渲染價格和緩衝設定的表格介面 (星海風格)"""
     st.markdown(f"<div class='card-section-header'>{CALIBRATION_HEADER}</div>", unsafe_allow_html=True)
 
     if not prices_ready:
@@ -516,7 +515,7 @@ else:
         if code not in st.session_state.ticker_buffers:
             st.session_state.ticker_buffers[code] = DEFAULT_BUFFERS.get(code, 0.01)
 
-# --- 側邊欄設定 ---
+# --- 側邊欄設定 (星海風格) ---
 st.sidebar.header(BUDGET_SIDEBAR_HEADER)
 total_budget = st.sidebar.number_input(
     BUDGET_INPUT_LABEL, 
@@ -538,12 +537,12 @@ st.sidebar.caption(MIN_FEE_CAPTION.format(MIN_FEE=MIN_FEE_ODD))
 
 # 檢查分配比例，如果不為 100%，則發出警告並進行安全修正
 if not check_allocation_sum(ALLOCATION_WEIGHTS):
-    st.sidebar.error("❌ 警告：所有標的分配比例總和不等於 100%。請修正 `ALLOCATION_WEIGHTS` 變量。")
+    st.sidebar.error("❌ 警告：所有戰區配比總和不等於 100%。請修正 `ALLOCATION_WEIGHTS` 變量。")
     safe_weights = {k: v / sum(ALLOCATION_WEIGHTS.values()) for k, v in ALLOCATION_WEIGHTS.items()}
 else:
     safe_weights = ALLOCATION_WEIGHTS
 
-# 價格同步狀態資訊
+# 價格同步狀態資訊 (星海風格)
 st.info(DATA_SYNC_INFO.format(fetch_time=fetch_time.strftime('%Y-%m-%d %H:%M:%S')))
 
 # 渲染價格設定
@@ -565,5 +564,5 @@ results_list, total_spent = calculate_investment(edited_df, total_budget, fee_ra
 render_budget_metrics(total_budget, total_spent)
 render_ticker_results_and_breakdown(results_list)
 
-# 底部說明
+# 底部說明 (星海風格)
 st.markdown(f"<div style='margin-top: 1.5rem; color: {LABEL_COLOR}; font-size: 0.9em; padding-left: 1rem;'>{DEPLOYMENT_PRINCIPLE_FOOTER.format(MIN_FEE=MIN_FEE_ODD)}</div>", unsafe_allow_html=True)
