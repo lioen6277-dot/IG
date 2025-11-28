@@ -305,7 +305,7 @@ def calculate_investment(edited_df, total_budget, fee_rate, min_fee_odd):
             trade_value_conservative = s * effective_price
             
             # 2. 手續費計算 (按「有效費率」計算，並使用 int() 達成無條件捨去/取整)
-            # 例如: 交易金額 * 0.000855，結果 1.7955 元會被捨去為 1 元。
+            # 例如: 使用 0.000855 (6折費率)，交易金額 2100元 -> 2100 * 0.000855 = 1.7955元，無條件捨去為 1元。
             fee_calculated = int(trade_value_conservative * fee_rate)
             
             # 3. 判斷整股 (>=1000) 或零股 (<1000) 適用不同低消
@@ -315,8 +315,7 @@ def calculate_investment(edited_df, total_budget, fee_rate, min_fee_odd):
                 current_min_fee = min_fee_odd # 零股低消 (用戶設定，預設 1 元)
 
             # 4. 最終收費規則: 最終手續費取「計算值」和「適用最低消費」的較大者 (Minimum Fee Rule)
-            # 若計算值 (如 1元) < 最低消費 (1元)，則收取 1元。
-            # 若計算值 (如 2元) > 最低消費 (1元)，則收取 2元。
+            # 確保零股最低收費為 1 元。
             current_fee = max(current_min_fee, fee_calculated)
             
             # 5. 總成本 (交易價值 + 最終手續費)
