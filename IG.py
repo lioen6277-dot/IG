@@ -4,36 +4,38 @@ import yfinance as yf
 from datetime import datetime
 import time
 
-TACC_TITLE_TEXT = "泰倫戰術指揮中心 (T.A.C.C.)"
+# 應用程式主要標題
+APP_TITLE_TEXT = "ETF 投資模擬與分配計算器"
 
-# --- 基礎設定與常數 ---
+# --- 基礎設定與常數 (標準中文命名) ---
 TOTAL_CAPITAL_LABEL = "💰 總戰備資金"
 ESTIMATED_COST_LABEL = "📊 預計軍備開支"
 REMAINING_FUNDS_LABEL = "現存資金餘額"
-RESOURCE_READINESS_HEADER = "💰 資源戰備總覽"
-BUDGET_SIDEBAR_HEADER = "⚙️ 資源調度指揮站"
-BUDGET_INPUT_LABEL = "每月行動預算 (TWD)"
-FEE_RATE_INPUT_LABEL = "輸送燃料費率 (0.xxxxxx)" 
+RESOURCE_READINESS_HEADER = "💰 資金總覽"
+BUDGET_SIDEBAR_HEADER = "⚙️ 參數設定與調整"
+BUDGET_INPUT_LABEL = "每月行動預算 (TWD)" 
+FEE_RATE_INPUT_LABEL = "券商手續費率 (0.xxxxxx)" 
 MIN_FEE_CAPTION = "💡 零股 (<1000股) 最低手續費為 **{MIN_FEE}** 元；整股 (≥1000股) 最低手續費自動調整為 **20** 元。"
 
-# --- 部署指令與結果 ---
-DEPLOYMENT_HEADER = "✨ 軍事單位部署指令"
-RECOMMENDED_UNITS_LABEL = "建議生產單位數"
-TOTAL_DEPLOYMENT_COST_LABEL = "部署總開支"
-TARGET_FUND_ALLOCATION_LABEL = "目標資金配給"
-UNIT_COST_LABEL = "單位造價 (含溢價)" 
-DEPLOYMENT_TARGET_LABEL = "🛡️ 部署目標: {code} ({ratio})"
-DEPLOYMENT_PRINCIPLE_FOOTER = "📌 T.A.C.C. 部署原則：買入單位數最大化且不超支。手續費：零股低消 {MIN_FEE} 元，整股低消 20 元。賣出時需另計 0.3% 交易稅。"
+# --- 部署指令與結果 (標準中文命名) ---
+DEPLOYMENT_HEADER = "✨ 投資分配與建議"
+RECOMMENDED_UNITS_LABEL = "建議買入股數" 
+TOTAL_DEPLOYMENT_COST_LABEL = "實際總成本" 
+TARGET_FUND_ALLOCATION_LABEL = "目標預計分配金額"
+UNIT_COST_LABEL = "單位買入價格 (含緩衝)" 
+LOGISTICS_FEE_LABEL = "預估手續費" # 恢復為更通用的手續費名稱
+DEPLOYMENT_TARGET_LABEL = "🎯 投資標的: {code} ({ratio})"
+DEPLOYMENT_PRINCIPLE_FOOTER = "📌 計算原則：在預算內買入單位數最大化。手續費：零股低消 {MIN_FEE} 元，整股低消 20 元。賣出時需另計 0.3% 交易稅。"
 
-# --- 校準數據 ---
-CALIBRATION_HEADER = "⚙️ 戰術數據校準 (價格與緩衝設定)"
-TARGET_DESIGNATION_LABEL = "🎯 戰場目標代號"
-STRATEGIC_RATIO_LABEL = "戰略配置比例"
+# --- 校準數據 (標準中文命名) ---
+CALIBRATION_HEADER = "⚙️ 價格與緩衝設定"
+TARGET_DESIGNATION_LABEL = "🎯 標的代號"
+STRATEGIC_RATIO_LABEL = "配置比例"
 DEFAULT_UNIT_COST_LABEL = "當前市價單價 (TWD)" 
 PRICE_BUFFER_LABEL_SC = "價格緩衝溢價 (TWD)"
-DATA_SYNC_SPINNER = '正在從聯邦情報網絡獲取最新戰術報價...'
-DATA_SYNC_INFO = "🌐 數據鏈同步時間：{fetch_time} (戰術報價資訊每 60 秒自動刷新)"
-DATA_FETCH_WARNING = "⚠️ 警告：戰術報價數據鏈中斷。所有價格已暫設為 0.01 元，請您手動輸入當前市價以確保計算準確！"
+DATA_SYNC_SPINNER = '正在從市場獲取最新報價...'
+DATA_SYNC_INFO = "🌐 數據同步時間：{fetch_time} (報價資訊每 60 秒自動刷新)"
+DATA_FETCH_WARNING = "⚠️ 警告：報價數據鏈中斷或無法獲取。所有價格已暫設為 0.01 元，請您手動輸入當前市價以確保計算準確！"
 
 # --- 核心參數 ---
 MAIN_COLOR = "#cf6955"    
@@ -68,7 +70,7 @@ DEFAULT_BUFFERS = {
 
 
 st.set_page_config(
-    page_title=TACC_TITLE_TEXT,
+    page_title=APP_TITLE_TEXT,
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -208,46 +210,58 @@ div[role="alert"] {{
 
 @st.cache_data(ttl=60)
 def get_current_prices(ticker_map):
+    """
+    從 yfinance 獲取最新的 ETF 報價。
+    使用 @st.cache_data 緩存 60 秒，避免頻繁呼叫 API。
+    """
     prices = {}
     fetch_time = datetime.now()
     tickers = list(ticker_map.values())
 
     for code in ticker_map.keys():
-        prices[code] = 0.0
+        prices[code] = 0.0 # 預設價格為 0.0
 
     try:
+        # 下載過去一天的 1 分鐘間隔數據
         data = yf.download(tickers, period="1d", interval="1m", progress=False, timeout=8)
 
         if data.empty:
              return prices, fetch_time
 
+        # 遍歷所有標的並嘗試提取最新的收盤價
         for code in ticker_map.keys():
             ticker = ticker_map[code]
             try:
                 close_data = data['Close']
 
                 if isinstance(close_data, pd.DataFrame):
+                    # 多個標的時，'Close' 是一個 DataFrame
                     if ticker in close_data.columns:
                         price_series = close_data[ticker]
                         valid_prices = price_series.dropna()
                         if not valid_prices.empty:
                             prices[code] = round(valid_prices.iloc[-1], 2)
                 elif isinstance(close_data, pd.Series):
+                    # 單一標的時，'Close' 是一個 Series
+                    # 確保只有在下載單一標的時才使用此路徑
                     if ticker == tickers[0] and len(tickers) == 1: 
                          valid_prices = close_data.dropna()
                          if not valid_prices.empty:
                              prices[code] = round(valid_prices.iloc[-1], 2)
 
             except Exception:
+                # 即使下載成功，單一標的解析失敗，仍設為 0.0
                 prices[code] = 0.0
 
     except Exception:
+        # 整個下載過程失敗，所有價格保持 0.0
         pass
 
     return prices, fetch_time
 
-# --- 核心計算邏輯更新：整股/零股手續費規則 ---
+# --- 核心計算邏輯：整股/零股手續費規則 ---
 def calculate_investment(edited_df, total_budget, fee_rate, min_fee_odd):
+    """計算最佳買入股數和成本，確保不超支且遵循手續費規則。"""
     results_list = []
     total_spent = 0.0
 
@@ -258,6 +272,7 @@ def calculate_investment(edited_df, total_budget, fee_rate, min_fee_odd):
         price_buffer = row["價格緩衝溢價"]
         allocated_budget = total_budget * weight
 
+        # 實際用於計算的買入成本 (市價 + 緩衝)
         effective_price = market_price + price_buffer
 
         shares_to_buy = 0
@@ -265,6 +280,7 @@ def calculate_investment(edited_df, total_budget, fee_rate, min_fee_odd):
         conservative_total_cost = 0.0
 
         if effective_price <= 0.0001 or allocated_budget <= 0:
+            # 價格或預算為零時，跳過計算
             results_list.append({
                 "標的代號": code,
                 "比例": f"{weight*100:.0f}%",
@@ -278,32 +294,35 @@ def calculate_investment(edited_df, total_budget, fee_rate, min_fee_odd):
             })
             continue
 
+        # 理論上最大可買入股數 (不含手續費)
         max_shares_theoretical = int(allocated_budget / effective_price)
         shares = 0
 
-        # 從理論最大值開始遞減，找出符合預算的股數
+        # 從理論最大值開始遞減，找出符合預算的最大股數
         for s in range(max_shares_theoretical, -1, -1):
             if s == 0:
                 shares = 0
                 break
 
-            # 1. 交易價值
+            # 1. 交易價值 (基於有效造價)
             trade_value_conservative = s * effective_price
             
-            # 2. 手續費計算 (整數運算)
+            # 2. 手續費計算 (使用 int() 達成無條件捨去或取整)
             fee_calculated = int(trade_value_conservative * fee_rate)
             
             # 3. 判斷整股 (>=1000) 或零股 (<1000) 適用不同低消
             if s >= 1000:
-                current_min_fee = 20 # 整股低消 20元
+                current_min_fee = MIN_FEE_REGULAR # 整股低消 20元
             else:
-                current_min_fee = min_fee_odd # 零股低消 1元 (使用者設定)
+                current_min_fee = min_fee_odd # 零股低消 (用戶設定，預設 1 元)
 
+            # 最終手續費取計算值和最低消費的較大者
             current_fee = max(current_min_fee, fee_calculated)
             
-            # 4. 總成本
+            # 4. 總成本 (交易價值 + 手續費)
             cost_for_budget_check = trade_value_conservative + current_fee
 
+            # 如果總成本在分配預算內，則此股數為最大可行股數
             if cost_for_budget_check <= allocated_budget:
                 shares = s
                 estimated_fee = current_fee
@@ -329,6 +348,7 @@ def calculate_investment(edited_df, total_budget, fee_rate, min_fee_odd):
 
 
 def render_budget_metrics(total_budget, total_spent):
+    """渲染資金總覽卡片"""
     st.markdown(f"<div class='card-section-header'>{RESOURCE_READINESS_HEADER}</div>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns(3)
     
@@ -364,6 +384,7 @@ def render_budget_metrics(total_budget, total_spent):
         """, unsafe_allow_html=True)
 
 def render_ticker_results_and_breakdown(results_list):
+    """渲染每個標的的建議結果和細項分解"""
     st.markdown(f"<div class='card-section-header'>{DEPLOYMENT_HEADER}</div>", unsafe_allow_html=True)
 
     for item in results_list:
@@ -372,6 +393,7 @@ def render_ticker_results_and_breakdown(results_list):
         total_cost_display = item['總成本']
         effective_price = item['有效造價'] 
 
+        # 使用標準的中文標籤
         metrics = [
             (RECOMMENDED_UNITS_LABEL, item['建議股數'], "highlight"),
             (UNIT_COST_LABEL, f"TWD {effective_price:,.2f}", "regular"),
@@ -395,6 +417,7 @@ def render_ticker_results_and_breakdown(results_list):
 
 
 def render_ticker_settings(ticker_map, allocation_weights, prices_ready=True):
+    """渲染價格和緩衝設置的表格介面"""
     st.markdown(f"<div class='card-section-header'>{CALIBRATION_HEADER}</div>", unsafe_allow_html=True)
 
     if not prices_ready:
@@ -407,9 +430,9 @@ def render_ticker_settings(ticker_map, allocation_weights, prices_ready=True):
     with cols_header[1]:
         st.markdown(f"<div class='label-text'>{STRATEGIC_RATIO_LABEL}</div>", unsafe_allow_html=True)
     with cols_header[2]:
-        st.markdown(f"<div class='label-text'>{DEFAULT_UNIT_COST_LABEL}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='label-text'>{DEFAULT_UNIT_COST_LABEL}</div>", unsafe_allow_html=True) 
     with cols_header[3]:
-        st.markdown(f"<div class='label-text'>{PRICE_BUFFER_LABEL_SC}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='label-text'>{PRICE_BUFFER_LABEL_SC}</div>", unsafe_allow_html=True) 
 
     for code in ticker_map.keys():
         weight = allocation_weights[code]
@@ -431,6 +454,7 @@ def render_ticker_settings(ticker_map, allocation_weights, prices_ready=True):
             """, unsafe_allow_html=True)
 
         with col_price:
+            # 讓用戶輸入或顯示最新的自動獲取價格
             new_price = st.number_input(
                 label=f"Price_Input_{code}",
                 min_value=0.01,
@@ -443,6 +467,7 @@ def render_ticker_settings(ticker_map, allocation_weights, prices_ready=True):
             st.session_state.editable_prices[code] = new_price
 
         with col_buffer:
+            # 讓用戶輸入價格緩衝溢價
             new_buffer = st.number_input(
                 label=f"Buffer_Input_{code}",
                 min_value=0.00,
@@ -459,41 +484,50 @@ def render_ticker_settings(ticker_map, allocation_weights, prices_ready=True):
 
 
 def check_allocation_sum(weights):
+    """檢查分配比例總和是否接近 1.0"""
     current_sum = sum(weights.values())
     return abs(current_sum - 1.0) < 1e-9
 
-st.title(TACC_TITLE_TEXT)
+st.title(APP_TITLE_TEXT)
 
 prices_ready = True
 with st.spinner(DATA_SYNC_SPINNER):
     current_prices, fetch_time = get_current_prices(TICKER_MAP)
+    # 如果所有價格都是 0.0，表示獲取失敗
     if all(p == 0.0 for p in current_prices.values()):
         prices_ready = False
 
+# --- Session State 初始化與價格更新邏輯優化 ---
+
 if 'editable_prices' not in st.session_state:
-    st.session_state.editable_prices = current_prices.copy()
+    # 首次運行或重啟，初始化價格。如果獲取失敗，初始化為 0.01 (用戶可手動修改)
+    st.session_state.editable_prices = {k: v if v > 0.0 else 0.01 for k, v in current_prices.items()}
 else:
+    # 非首次運行，僅在成功獲取到有效價格時，自動更新 session_state 中的價格
     for code, price in current_prices.items():
-        if f"price_input_{code}" not in st.session_state and st.session_state.editable_prices[code] != price:
-             st.session_state.editable_prices[code] = price
+        if price > 0.0:
+            st.session_state.editable_prices[code] = price
+
 
 if 'ticker_buffers' not in st.session_state:
     st.session_state.ticker_buffers = DEFAULT_BUFFERS.copy()
 else:
+    # 確保所有標的都有緩衝設定，以防 TICKER_MAP 變更
     for code in TICKER_MAP.keys():
         if code not in st.session_state.ticker_buffers:
             st.session_state.ticker_buffers[code] = DEFAULT_BUFFERS.get(code, 0.01)
 
+# --- 側邊欄設定 ---
 st.sidebar.header(BUDGET_SIDEBAR_HEADER)
 total_budget = st.sidebar.number_input(
-    BUDGET_INPUT_LABEL,
+    BUDGET_INPUT_LABEL, 
     min_value=100,
     value=DEFAULT_BUDGET,
     step=1000,
     format="%d"
 )
 fee_rate = st.sidebar.number_input(
-    FEE_RATE_INPUT_LABEL,
+    FEE_RATE_INPUT_LABEL, 
     min_value=0.000001,
     max_value=0.01,
     value=FEE_RATE_DEFAULT,
@@ -503,16 +537,20 @@ fee_rate = st.sidebar.number_input(
 st.sidebar.caption(MIN_FEE_CAPTION.format(MIN_FEE=MIN_FEE_ODD))
 
 
+# 檢查分配比例，如果不為 100%，則發出警告並進行安全修正
 if not check_allocation_sum(ALLOCATION_WEIGHTS):
     st.sidebar.error("❌ 警告：所有標的分配比例總和不等於 100%。請修正 `ALLOCATION_WEIGHTS` 變量。")
     safe_weights = {k: v / sum(ALLOCATION_WEIGHTS.values()) for k, v in ALLOCATION_WEIGHTS.items()}
 else:
     safe_weights = ALLOCATION_WEIGHTS
 
+# 價格同步狀態資訊
 st.info(DATA_SYNC_INFO.format(fetch_time=fetch_time.strftime('%Y-%m-%d %H:%M:%S')))
 
+# 渲染價格設定
 render_ticker_settings(TICKER_MAP, safe_weights, prices_ready)
 
+# 準備計算所需的 DataFrame
 data_for_calc = {
     "標的代號": list(TICKER_MAP.keys()),
     "設定比例": [safe_weights[code] for code in TICKER_MAP.keys()],
@@ -521,10 +559,12 @@ data_for_calc = {
 }
 edited_df = pd.DataFrame(data_for_calc)
 
+# 執行核心計算
 results_list, total_spent = calculate_investment(edited_df, total_budget, fee_rate, MIN_FEE_ODD)
 
+# 渲染資金總覽和結果
 render_budget_metrics(total_budget, total_spent)
-
 render_ticker_results_and_breakdown(results_list)
 
+# 底部說明
 st.markdown(f"<div style='margin-top: 1.5rem; color: {LABEL_COLOR}; font-size: 0.9em; padding-left: 1rem;'>{DEPLOYMENT_PRINCIPLE_FOOTER.format(MIN_FEE=MIN_FEE_ODD)}</div>", unsafe_allow_html=True)
