@@ -14,8 +14,8 @@ REMAINING_FUNDS_LABEL = "現存資金餘額"
 RESOURCE_READINESS_HEADER = "💰 資金總覽"
 BUDGET_SIDEBAR_HEADER = "⚙️ 參數設定與調整"
 BUDGET_INPUT_LABEL = "每月行動預算 (TWD)" 
-FEE_RATE_INPUT_LABEL = "券商手續費率 (0.xxxxxx)" 
-MIN_FEE_CAPTION = "💡 零股 (<1000股) 最低手續費為 **{MIN_FEE}** 元；整股 (≥1000股) 最低手續費自動調整為 **20** 元。"
+FEE_RATE_INPUT_LABEL = "有效券商手續費率 (已打折，0.xxxxxx)" 
+MIN_FEE_CAPTION = "💡 零股 (<1000股) 最低手續費為 **{MIN_FEE}** 元；整股 (≥1000股) 最低收費為 **20** 元。"
 
 # --- 部署指令與結果 (標準中文命名) ---
 DEPLOYMENT_HEADER = "✨ 投資分配與建議"
@@ -23,7 +23,7 @@ RECOMMENDED_UNITS_LABEL = "建議買入股數"
 TOTAL_DEPLOYMENT_COST_LABEL = "實際總成本" 
 TARGET_FUND_ALLOCATION_LABEL = "目標預計分配金額"
 UNIT_COST_LABEL = "單位買入價格 (含緩衝)" 
-LOGISTICS_FEE_LABEL = "預估手續費" # 恢復為更通用的手續費名稱
+LOGISTICS_FEE_LABEL = "預估手續費" 
 DEPLOYMENT_TARGET_LABEL = "🎯 投資標的: {code} ({ratio})"
 DEPLOYMENT_PRINCIPLE_FOOTER = "📌 計算原則：在預算內買入單位數最大化。手續費：零股低消 {MIN_FEE} 元，整股低消 20 元。賣出時需另計 0.3% 交易稅。"
 
@@ -56,8 +56,9 @@ ALLOCATION_WEIGHTS = {
     "0050": 0.30,
     "00878": 0.20
 }
-FEE_RATE_DEFAULT = 0.001425
-MIN_FEE_ODD = 1  # 零股低消
+# 根據用戶規則更新：牌價 0.1425% 打 6 折 = 0.000855
+FEE_RATE_DEFAULT = 0.000855 # 預設有效費率 (已打 6 折: 0.1425% * 0.6)
+MIN_FEE_ODD = 1  # 零股低消 (用戶設定，預設 1 元)
 MIN_FEE_REGULAR = 20 # 整股低消
 DEFAULT_BUDGET = 3000 
 
@@ -233,28 +234,24 @@ def get_current_prices(ticker_map):
             ticker = ticker_map[code]
             try:
                 close_data = data['Close']
-
+                
+                # 處理 yfinance 返回單一或多個標的數據的結構差異
                 if isinstance(close_data, pd.DataFrame):
-                    # 多個標的時，'Close' 是一個 DataFrame
                     if ticker in close_data.columns:
                         price_series = close_data[ticker]
                         valid_prices = price_series.dropna()
                         if not valid_prices.empty:
                             prices[code] = round(valid_prices.iloc[-1], 2)
                 elif isinstance(close_data, pd.Series):
-                    # 單一標的時，'Close' 是一個 Series
-                    # 確保只有在下載單一標的時才使用此路徑
                     if ticker == tickers[0] and len(tickers) == 1: 
                          valid_prices = close_data.dropna()
                          if not valid_prices.empty:
                              prices[code] = round(valid_prices.iloc[-1], 2)
 
             except Exception:
-                # 即使下載成功，單一標的解析失敗，仍設為 0.0
                 prices[code] = 0.0
 
     except Exception:
-        # 整個下載過程失敗，所有價格保持 0.0
         pass
 
     return prices, fetch_time
@@ -307,7 +304,8 @@ def calculate_investment(edited_df, total_budget, fee_rate, min_fee_odd):
             # 1. 交易價值 (基於有效造價)
             trade_value_conservative = s * effective_price
             
-            # 2. 手續費計算 (使用 int() 達成無條件捨去或取整)
+            # 2. 手續費計算 (按「有效費率」計算，並使用 int() 達成無條件捨去/取整)
+            # 例如: 交易金額 * 0.000855，結果 1.7955 元會被捨去為 1 元。
             fee_calculated = int(trade_value_conservative * fee_rate)
             
             # 3. 判斷整股 (>=1000) 或零股 (<1000) 適用不同低消
@@ -316,10 +314,12 @@ def calculate_investment(edited_df, total_budget, fee_rate, min_fee_odd):
             else:
                 current_min_fee = min_fee_odd # 零股低消 (用戶設定，預設 1 元)
 
-            # 最終手續費取計算值和最低消費的較大者
+            # 4. 最終收費規則: 最終手續費取「計算值」和「適用最低消費」的較大者 (Minimum Fee Rule)
+            # 若計算值 (如 1元) < 最低消費 (1元)，則收取 1元。
+            # 若計算值 (如 2元) > 最低消費 (1元)，則收取 2元。
             current_fee = max(current_min_fee, fee_calculated)
             
-            # 4. 總成本 (交易價值 + 手續費)
+            # 5. 總成本 (交易價值 + 最終手續費)
             cost_for_budget_check = trade_value_conservative + current_fee
 
             # 如果總成本在分配預算內，則此股數為最大可行股數
@@ -417,7 +417,7 @@ def render_ticker_results_and_breakdown(results_list):
 
 
 def render_ticker_settings(ticker_map, allocation_weights, prices_ready=True):
-    """渲染價格和緩衝設置的表格介面"""
+    """渲染價格和緩衝設定的表格介面"""
     st.markdown(f"<div class='card-section-header'>{CALIBRATION_HEADER}</div>", unsafe_allow_html=True)
 
     if not prices_ready:
