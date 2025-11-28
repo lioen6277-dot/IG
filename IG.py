@@ -399,7 +399,7 @@ def render_budget_metrics(total_budget, total_spent):
         """, unsafe_allow_html=True)
 
 def render_ticker_results_and_breakdown(results_list):
-    """渲染每個標的的建議結果和細項分解 (星海風格) - 重新排序版 2x2 佈局 - 優化視覺"""
+    """渲染每個標的的建議結果和細項分解 (星海風格) - 重新排序版 2x2 佈局"""
     st.markdown(f"<div class='card-section-header'>{DEPLOYMENT_HEADER}</div>", unsafe_allow_html=True)
 
     for item in results_list:
@@ -416,32 +416,32 @@ def render_ticker_results_and_breakdown(results_list):
         # ROW 1: 部署數量 & 單位招募單價 (效率指標)
         col1, col2 = st.columns(2)
         
-        # 1. 建議部署單位數量 (Highlight) - Maximize visibility
+        # 1. 建議部署單位數量 (Highlight)
         with col1:
             st.markdown(f"""
             <div class='highlight-tile'>
-                <div class='label-text'>🚀 {RECOMMENDED_UNITS_LABEL}</div>
+                <div class='label-text'>{RECOMMENDED_UNITS_LABEL}</div>
                 <div class='value-text-highlight'>{item['建議股數']}</div>
             </div>
             """, unsafe_allow_html=True)
             
-        # 2. 戰術單位招募單價 (有效造價) - Price focus
+        # 2. 戰術單位招募單價 (有效造價)
         with col2:
             st.markdown(f"""
             <div class='sub-card-tile'>
-                <div class='label-text'>⛏️ {UNIT_COST_LABEL}</div>
+                <div class='label-text'>{UNIT_COST_LABEL}</div>
                 <div class='value-text-regular'>TWD {effective_price:,.2f}</div>
             </div>
             """, unsafe_allow_html=True)
 
-        # ROW 2: 最終戰損開支 & 目標戰區晶礦配給 (財務指標)
+        # ROW 2: 最終戰損開支 & 晶礦配給/物流費用 (財務指標)
         col3, col4 = st.columns(2)
 
-        # 3. 最終戰損開支 (總成本) - Actual spending
+        # 3. 最終戰損開支 (總成本)
         with col3:
             st.markdown(f"""
-            <div class='sub-card-tile' style='border-left: 5px solid {MAIN_COLOR};'>
-                <div class='label-text'>💸 {TOTAL_DEPLOYMENT_COST_LABEL}</div>
+            <div class='sub-card-tile'>
+                <div class='label-text'>{TOTAL_DEPLOYMENT_COST_LABEL}</div>
                 <div class='value-text-regular'>TWD {total_cost_display:,.2f}</div>
             </div>
             """, unsafe_allow_html=True)
@@ -450,13 +450,11 @@ def render_ticker_results_and_breakdown(results_list):
         with col4:
             st.markdown(f"""
             <div class='sub-card-tile'>
-                <div class='label-text'>🏦 {TARGET_FUND_ALLOCATION_LABEL}</div>
+                <div class='label-text'>{TARGET_FUND_ALLOCATION_LABEL}</div>
                 <div class='value-text-regular' style='margin-bottom: 0.5rem;'>TWD {allocated_budget:,.0f}</div>
                 
-                <div style='margin-top: 1rem; border-top: 1px dashed rgba(255, 255, 255, 0.1); padding-top: 0.5rem;'>
-                    <div class='label-text'>| 📦 {LOGISTICS_FEE_LABEL}</div>
-                    <div class='value-text-regular'>TWD {estimated_fee:,.0f}</div>
-                </div>
+                <div class='label-text'>| {LOGISTICS_FEE_LABEL}</div>
+                <div class='value-text-regular'>TWD {estimated_fee:,.0f}</div>
             </div>
             """, unsafe_allow_html=True)
 
