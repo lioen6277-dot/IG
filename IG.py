@@ -110,15 +110,6 @@ h1 {{
     border: 2px solid {ACCENT_COLOR}; 
     box-shadow: 0 0 15px rgba(233, 150, 122, 0.5); 
 }}
-.setting-row {{
-    background: #181b20; /* Slightly darker background for the row container */
-    border-radius: 6px;
-    padding: 0.5rem 1rem; /* Reduced vertical padding */
-    margin-bottom: 0.5rem; 
-    border-left: 3px solid #333; 
-    display: flex; 
-    align-items: center;
-}}
 .label-text {{
     font-size: 0.9em; 
     color: {LABEL_COLOR};
@@ -148,9 +139,7 @@ h1 {{
     color: {TEXT_COLOR};
     font-size: 1.4em; 
     font-weight: 700;
-    /* Adjusted margins for better alignment in the setting-row */
-    margin-top: 0.2rem !important; 
-    margin-bottom: 0.2rem !important;
+    margin-top: 0.25rem;
 }}
 .card-section-header {{
     color: {MAIN_COLOR};
@@ -178,11 +167,6 @@ h1 {{
     padding: 0.5rem;
     transition: all 0.2s ease;
 }}
-.setting-row .stNumberInput > div > div {{
-    padding: 0.4rem 0.75rem; /* Tighter padding for setting rows */
-    margin-top: 0;
-    margin-bottom: 0;
-}}
 .stNumberInput > div > div:focus-within {{
     background-color: #242424; 
     border: 1px solid {ACCENT_COLOR} !important;
@@ -191,7 +175,7 @@ h1 {{
 .stNumberInput input {{
     color: {ACCENT_COLOR} !important;
     font-weight: bold;
-    font-size: 1.1em; /* Slightly adjusted font size for tighter inputs */
+    font-size: 1.3em; 
 }}
 div[role="alert"] {{
     background-color: rgba(207, 105, 85, 0.15) !important;
@@ -320,7 +304,7 @@ def calculate_investment(edited_df, total_budget, fee_rate, min_fee_odd):
             trade_value_conservative = s * effective_price
             
             # 2. 手續費計算 (按「有效費率」計算，並使用 int() 達成無條件捨去/取整)
-            # int() 在 Python 中對正數等同於 floor()
+            # 例如: 使用 0.000855 (6折費率)，交易金額 2100元 -> 2100 * 0.000855 = 1.7955元，無條件捨去為 1元。
             fee_calculated = int(trade_value_conservative * fee_rate)
             
             # 3. 判斷整股 (>=1000) 或零股 (<1000) 適用不同低消
@@ -330,6 +314,7 @@ def calculate_investment(edited_df, total_budget, fee_rate, min_fee_odd):
                 current_min_fee = min_fee_odd # 零股低消 (用戶設定，預設 1 元)
 
             # 4. 最終收費規則: 最終手續費取「計算值」和「適用最低消費」的較大者 (Minimum Fee Rule)
+            # 確保零股最低收費為 1 元。
             current_fee = max(current_min_fee, fee_calculated)
             
             # 5. 總成本 (交易價值 + 最終手續費)
@@ -408,7 +393,7 @@ def render_ticker_results_and_breakdown(results_list):
         allocated_budget = item['分配金額']
         estimated_fee = item['預估手續費']
         
-        # 標題 
+        # 標題 (保持不變)
         st.markdown(f"<div class='ticker-group-header-sc'>{DEPLOYMENT_TARGET_LABEL.format(code=code, ratio=ratio)}</div>", unsafe_allow_html=True)
 
         # 簡化為 3 欄關鍵指標
@@ -441,7 +426,7 @@ def render_ticker_results_and_breakdown(results_list):
             </div>
             """, unsafe_allow_html=True)
 
-        # 4. 輔助資訊 (預算與手續費) - 以 info 區塊呈現
+        # 4. 輔助資訊 (預算與手續費) - 以 info 區塊呈現，簡化主視覺
         st.info(
             f"**{TARGET_FUND_ALLOCATION_LABEL}:** TWD {allocated_budget:,.0f} | "
             f"**{LOGISTICS_FEE_LABEL}:** TWD {estimated_fee:,.0f}"
@@ -449,7 +434,7 @@ def render_ticker_results_and_breakdown(results_list):
 
 
 def render_ticker_settings(ticker_map, allocation_weights, prices_ready=True):
-    """渲染價格和緩衝設定的表格介面 (星海風格) - 優化佈局"""
+    """渲染價格和緩衝設定的表格介面 (星海風格)"""
     st.markdown(f"<div class='card-section-header'>{CALIBRATION_HEADER}</div>", unsafe_allow_html=True)
 
     if not prices_ready:
@@ -471,48 +456,48 @@ def render_ticker_settings(ticker_map, allocation_weights, prices_ready=True):
         price_value = st.session_state.editable_prices.get(code, 0.01)
         buffer_value = st.session_state.ticker_buffers.get(code, DEFAULT_BUFFERS.get(code, 0.01))
 
-        # 使用 custom CSS class for row styling and alignment
-        with st.container():
-            st.markdown("<div class='setting-row'>", unsafe_allow_html=True)
-            col_code, col_weight, col_price, col_buffer = st.columns([1.5, 1, 2.5, 2.5])
+        st.markdown("<div class='sub-card-tile'>", unsafe_allow_html=True)
+        
+        col_code, col_weight, col_price, col_buffer = st.columns([1.5, 1, 2.5, 2.5])
 
-            with col_code:
-                st.markdown(f"""
-                    <div class='value-text-setting'>{code}</div>
-                """, unsafe_allow_html=True)
+        with col_code:
+            st.markdown(f"""
+                <div class='value-text-setting' style='margin-top: 0.25rem;'>{code}</div>
+            """, unsafe_allow_html=True)
 
-            with col_weight:
-                st.markdown(f"""
-                    <div class='value-text-setting'>{weight*100:.0f}%</div>
-                """, unsafe_allow_html=True)
+        with col_weight:
+            st.markdown(f"""
+                <div class='value-text-setting' style='margin-top: 0.25rem;'>{weight*100:.0f}%</div>
+            """, unsafe_allow_html=True)
 
-            with col_price:
-                # 讓用戶輸入或顯示最新的自動獲取價格
-                new_price = st.number_input(
-                    label=f"Price_Input_{code}",
-                    min_value=0.01,
-                    value=price_value,
-                    step=0.01,
-                    format="%.2f",
-                    key=f"price_input_{code}",
-                    label_visibility="collapsed"
-                )
-                st.session_state.editable_prices[code] = new_price
+        with col_price:
+            # 讓用戶輸入或顯示最新的自動獲取價格
+            new_price = st.number_input(
+                label=f"Price_Input_{code}",
+                min_value=0.01,
+                value=price_value,
+                step=0.01,
+                format="%.2f",
+                key=f"price_input_{code}",
+                label_visibility="collapsed"
+            )
+            st.session_state.editable_prices[code] = new_price
 
-            with col_buffer:
-                # 讓用戶輸入價格緩衝溢價
-                new_buffer = st.number_input(
-                    label=f"Buffer_Input_{code}",
-                    min_value=0.00,
-                    value=buffer_value,
-                    step=0.01,
-                    format="%.2f",
-                    key=f"buffer_input_{code}",
-                    label_visibility="collapsed"
-                )
-                st.session_state.ticker_buffers[code] = new_buffer
+        with col_buffer:
+            # 讓用戶輸入價格緩衝溢價
+            new_buffer = st.number_input(
+                label=f"Buffer_Input_{code}",
+                min_value=0.00,
+                value=buffer_value,
+                step=0.01,
+                format="%.2f",
+                key=f"buffer_input_{code}",
+                label_visibility="collapsed"
+            )
+            st.session_state.ticker_buffers[code] = new_buffer
 
-            st.markdown("</div>", unsafe_allow_html=True)
+
+        st.markdown("</div>", unsafe_allow_html=True)
 
 
 def check_allocation_sum(weights):
@@ -572,8 +557,7 @@ st.sidebar.caption(MIN_FEE_CAPTION.format(MIN_FEE=MIN_FEE_ODD))
 # 檢查分配比例，如果不為 100%，則發出警告並進行安全修正
 if not check_allocation_sum(ALLOCATION_WEIGHTS):
     st.sidebar.error("❌ 警告：所有戰區配比總和不等於 100%。請修正 `ALLOCATION_WEIGHTS` 變量。")
-    # This is a protective measure in case the user modifies the hardcoded weights later.
-    safe_weights = {k: v / sum(ALLOCATION_WEIGHTS.values()) for k, v in ALLOCATION_WEIGHTS.items()}
+    safe_weights = {k: v / sum(ALLOCATION_WEIGHTS.values()) for k: v for k, v in ALLOCATION_WEIGHTS.items()}
 else:
     safe_weights = ALLOCATION_WEIGHTS
 
