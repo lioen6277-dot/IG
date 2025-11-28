@@ -382,36 +382,55 @@ def render_budget_metrics(total_budget, total_spent):
         """, unsafe_allow_html=True)
 
 def render_ticker_results_and_breakdown(results_list):
-    """渲染每個標的的建議結果和細項分解 (星海風格)"""
+    """渲染每個標的的建議結果和細項分解 (星海風格) - 簡化版"""
     st.markdown(f"<div class='card-section-header'>{DEPLOYMENT_HEADER}</div>", unsafe_allow_html=True)
 
     for item in results_list:
-        st.markdown(f"<div class='ticker-group-header-sc'>{DEPLOYMENT_TARGET_LABEL.format(code=item['標的代號'], ratio=item['比例'])}</div>", unsafe_allow_html=True)
-
+        code = item['標的代號']
+        ratio = item['比例']
         total_cost_display = item['總成本']
         effective_price = item['有效造價'] 
+        allocated_budget = item['分配金額']
+        estimated_fee = item['預估手續費']
+        
+        # 標題 (保持不變)
+        st.markdown(f"<div class='ticker-group-header-sc'>{DEPLOYMENT_TARGET_LABEL.format(code=code, ratio=ratio)}</div>", unsafe_allow_html=True)
 
-        # 使用星海風格標籤
-        metrics = [
-            (RECOMMENDED_UNITS_LABEL, item['建議股數'], "highlight"),
-            (UNIT_COST_LABEL, f"TWD {effective_price:,.2f}", "regular"),
-            (TOTAL_DEPLOYMENT_COST_LABEL, f"TWD {total_cost_display:,.2f}", "regular"), 
-            (TARGET_FUND_ALLOCATION_LABEL, f"TWD {item['分配金額']:,.0f}", "regular"),
-            (LOGISTICS_FEE_LABEL, f"TWD {item['預估手續費']:,.0f}", "regular"),
-        ]
+        # 簡化為 3 欄關鍵指標
+        col1, col2, col3 = st.columns(3)
+        
+        # 1. 建議部署單位數量 (Highlight)
+        with col1:
+            st.markdown(f"""
+            <div class='highlight-tile'>
+                <div class='label-text'>{RECOMMENDED_UNITS_LABEL}</div>
+                <div class='value-text-highlight'>{item['建議股數']}</div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+        # 2. 最終戰損開支 (總成本)
+        with col2:
+            st.markdown(f"""
+            <div class='sub-card-tile'>
+                <div class='label-text'>{TOTAL_DEPLOYMENT_COST_LABEL}</div>
+                <div class='value-text-regular'>TWD {total_cost_display:,.2f}</div>
+            </div>
+            """, unsafe_allow_html=True)
 
-        col1, col2, col3, col4, col5 = st.columns(5)
-        for i, (label, value, style_type) in enumerate(metrics):
-            with [col1, col2, col3, col4, col5][i]:
-                tile_class = 'highlight-tile' if style_type == 'highlight' else 'sub-card-tile'
-                value_class = 'value-text-highlight' if style_type == 'highlight' else 'value-text-regular'
-                
-                st.markdown(f"""
-                <div class='{tile_class}'>
-                    <div class='label-text'>{label}</div>
-                    <div class='{value_class}'>{value}</div>
-                </div>
-                """, unsafe_allow_html=True)
+        # 3. 戰術單位招募單價 (有效造價)
+        with col3:
+            st.markdown(f"""
+            <div class='sub-card-tile'>
+                <div class='label-text'>{UNIT_COST_LABEL}</div>
+                <div class='value-text-regular'>TWD {effective_price:,.2f}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # 4. 輔助資訊 (預算與手續費) - 以 info 區塊呈現，簡化主視覺
+        st.info(
+            f"**{TARGET_FUND_ALLOCATION_LABEL}:** TWD {allocated_budget:,.0f} | "
+            f"**{LOGISTICS_FEE_LABEL}:** TWD {estimated_fee:,.0f}"
+        )
 
 
 def render_ticker_settings(ticker_map, allocation_weights, prices_ready=True):
@@ -538,7 +557,7 @@ st.sidebar.caption(MIN_FEE_CAPTION.format(MIN_FEE=MIN_FEE_ODD))
 # 檢查分配比例，如果不為 100%，則發出警告並進行安全修正
 if not check_allocation_sum(ALLOCATION_WEIGHTS):
     st.sidebar.error("❌ 警告：所有戰區配比總和不等於 100%。請修正 `ALLOCATION_WEIGHTS` 變量。")
-    safe_weights = {k: v / sum(ALLOCATION_WEIGHTS.values()) for k, v in ALLOCATION_WEIGHTS.items()}
+    safe_weights = {k: v / sum(ALLOCATION_WEIGHTS.values()) for k: v for k, v in ALLOCATION_WEIGHTS.items()}
 else:
     safe_weights = ALLOCATION_WEIGHTS
 
