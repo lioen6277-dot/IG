@@ -96,6 +96,7 @@ h1 {{
     border-radius: 8px;
     padding: 1.2rem; 
     height: 100%;
+    min-height: 120px; /* Ensure tiles are uniform height for better alignment */
     margin-bottom: 1rem; 
     transition: all 0.2s ease-in-out;
     border: 1px solid rgba(255, 255, 255, 0.05); 
@@ -106,6 +107,7 @@ h1 {{
     border-radius: 8px;
     padding: 1.2rem; 
     height: 100%;
+    min-height: 120px; /* Ensure tiles are uniform height for better alignment */
     margin-bottom: 1rem;
     border: 2px solid {ACCENT_COLOR}; 
     box-shadow: 0 0 15px rgba(233, 150, 122, 0.5); 
@@ -397,7 +399,7 @@ def render_budget_metrics(total_budget, total_spent):
         """, unsafe_allow_html=True)
 
 def render_ticker_results_and_breakdown(results_list):
-    """渲染每個標的的建議結果和細項分解 (星海風格) - 簡化版"""
+    """渲染每個標的的建議結果和細項分解 (星海風格) - 重新排序版 2x2 佈局"""
     st.markdown(f"<div class='card-section-header'>{DEPLOYMENT_HEADER}</div>", unsafe_allow_html=True)
 
     for item in results_list:
@@ -411,8 +413,8 @@ def render_ticker_results_and_breakdown(results_list):
         # 標題 
         st.markdown(f"<div class='ticker-group-header-sc'>{DEPLOYMENT_TARGET_LABEL.format(code=code, ratio=ratio)}</div>", unsafe_allow_html=True)
 
-        # 簡化為 3 欄關鍵指標
-        col1, col2, col3 = st.columns(3)
+        # ROW 1: 部署數量 & 單位招募單價 (效率指標)
+        col1, col2 = st.columns(2)
         
         # 1. 建議部署單位數量 (Highlight)
         with col1:
@@ -423,17 +425,8 @@ def render_ticker_results_and_breakdown(results_list):
             </div>
             """, unsafe_allow_html=True)
             
-        # 2. 最終戰損開支 (總成本)
+        # 2. 戰術單位招募單價 (有效造價)
         with col2:
-            st.markdown(f"""
-            <div class='sub-card-tile'>
-                <div class='label-text'>{TOTAL_DEPLOYMENT_COST_LABEL}</div>
-                <div class='value-text-regular'>TWD {total_cost_display:,.2f}</div>
-            </div>
-            """, unsafe_allow_html=True)
-
-        # 3. 戰術單位招募單價 (有效造價)
-        with col3:
             st.markdown(f"""
             <div class='sub-card-tile'>
                 <div class='label-text'>{UNIT_COST_LABEL}</div>
@@ -441,11 +434,29 @@ def render_ticker_results_and_breakdown(results_list):
             </div>
             """, unsafe_allow_html=True)
 
-        # 4. 輔助資訊 (預算與手續費) - 以 info 區塊呈現
-        st.info(
-            f"**{TARGET_FUND_ALLOCATION_LABEL}:** TWD {allocated_budget:,.0f} | "
-            f"**{LOGISTICS_FEE_LABEL}:** TWD {estimated_fee:,.0f}"
-        )
+        # ROW 2: 最終戰損開支 & 晶礦配給/物流費用 (財務指標)
+        col3, col4 = st.columns(2)
+
+        # 3. 最終戰損開支 (總成本)
+        with col3:
+            st.markdown(f"""
+            <div class='sub-card-tile'>
+                <div class='label-text'>{TOTAL_DEPLOYMENT_COST_LABEL}</div>
+                <div class='value-text-regular'>TWD {total_cost_display:,.2f}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # 4. 目標戰區晶礦配給 & 預估物流補給費 (Combined Tile)
+        with col4:
+            st.markdown(f"""
+            <div class='sub-card-tile'>
+                <div class='label-text'>{TARGET_FUND_ALLOCATION_LABEL}</div>
+                <div class='value-text-regular' style='margin-bottom: 0.5rem;'>TWD {allocated_budget:,.0f}</div>
+                
+                <div class='label-text'>| {LOGISTICS_FEE_LABEL}</div>
+                <div class='value-text-regular'>TWD {estimated_fee:,.0f}</div>
+            </div>
+            """, unsafe_allow_html=True)
 
 
 def render_ticker_settings(ticker_map, allocation_weights, prices_ready=True):
