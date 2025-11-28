@@ -4,46 +4,41 @@ import yfinance as yf
 from datetime import datetime
 import time
 
-# 應用程式主要標題 (泰倫風格)
 APP_TITLE_TEXT = "泰倫聯邦：星區資源部署系統 (T.C.R.D.S.)"
 
-# --- 基礎設定與常數 (星海/繁中風格 - V37 更新命名) ---
 TOTAL_CAPITAL_LABEL = "C-14 總備用晶礦"
 ESTIMATED_COST_LABEL = "預計軍火消耗"
 REMAINING_FUNDS_LABEL = "剩餘能源庫存"
 RESOURCE_READINESS_HEADER = "礦物/瓦斯戰情總覽"
 BUDGET_SIDEBAR_HEADER = "⚙️ 戰術部隊參數設定"
-BUDGET_INPUT_LABEL = "每月戰術部署上限 (TWD)" 
-FEE_RATE_INPUT_LABEL = "物流運輸淨損耗率 (0.xxxxxx)" 
+BUDGET_INPUT_LABEL = "每月戰術部署上限 (TWD)"
+FEE_RATE_INPUT_LABEL = "物流運輸淨損耗率 (0.xxxxxx)"
 MIN_FEE_CAPTION = "💡 零股 (<1000股) 適用 **{MIN_FEE}** 元最低協議物流費用；整股 (≥1000股) 最低收費為 **20** 元。"
 
-# --- 部署指令與結果 (V37 命名更新) ---
 DEPLOYMENT_HEADER = "✨ 作戰部隊分配建議"
-RECOMMENDED_UNITS_LABEL = "部署單位數量" 
-TOTAL_DEPLOYMENT_COST_LABEL = "最終戰損開支" 
+RECOMMENDED_UNITS_LABEL = "部署單位數量"
+TOTAL_DEPLOYMENT_COST_LABEL = "最終戰損開支"
 TARGET_FUND_ALLOCATION_LABEL = "目標戰區晶礦配給"
-UNIT_COST_LABEL = "戰術單位招募單價 (含議價)" 
-LOGISTICS_FEE_LABEL = "預估物流補給費" 
+UNIT_COST_LABEL = "戰術單位招募單價 (含議價)"
+LOGISTICS_FEE_LABEL = "預估物流補給費"
 DEPLOYMENT_TARGET_LABEL = "🎯 戰區目標: {code} ({ratio})"
 DEPLOYMENT_PRINCIPLE_FOOTER = "📌 作戰準則：在預算內最大化單位數量。物流費用：零股低消 {MIN_FEE} 元，整股低消 20 元。出售時需另計 0.3% 聯邦交易稅。"
 
-# --- 校準數據 (星海/繁中風格) ---
 CALIBRATION_HEADER = "⚙️ 市場偵測與議價設定"
 TARGET_DESIGNATION_LABEL = "🎯 標的代號"
 STRATEGIC_RATIO_LABEL = "作戰區域配比"
-DEFAULT_UNIT_COST_LABEL = "偵測到當前市場單價 (TWD)" 
+DEFAULT_UNIT_COST_LABEL = "偵測到當前市場單價 (TWD)"
 PRICE_BUFFER_LABEL_SC = "超額訂購溢價 (TWD)"
 DATA_SYNC_SPINNER = '星區雷達正在獲取最新資源報價...'
 DATA_SYNC_INFO = "🌐 資料鏈同步時間：{fetch_time} (雷達數據每 60 秒自動刷新)"
 DATA_FETCH_WARNING = "⚠️ 紅色警報：星區資料鏈傳輸中斷或無法獲取。所有價格已暫設為 0.01 元，請您手動輸入當前市場單價以確保部署準確！"
 
-# --- 核心參數 ---
-MAIN_COLOR = "#cf6955"    # 橘紅色 (Terran accent)
-ACCENT_COLOR = "#e9967a"  # 亮橘色
+MAIN_COLOR = "#cf6955"
+ACCENT_COLOR = "#e9967a"
 TEXT_COLOR = "#ffffff"
 LABEL_COLOR = "#b0b0b0"
 DARK_BG = "#1a1a1a"
-TILE_BG = "#1e2126" 
+TILE_BG = "#1e2126"
 
 TICKER_MAP = {
     "009813": "009813.TW",
@@ -56,15 +51,15 @@ ALLOCATION_WEIGHTS = {
     "0050": 0.30,
     "00878": 0.20
 }
-FEE_RATE_DEFAULT = 0.000855 
-MIN_FEE_ODD = 1  # 零股低消
-MIN_FEE_REGULAR = 20 # 整股低消
-DEFAULT_BUDGET = 3000 
+FEE_RATE_DEFAULT = 0.000855
+MIN_FEE_ODD = 1
+MIN_FEE_REGULAR = 20
+DEFAULT_BUDGET = 3000
 
 DEFAULT_BUFFERS = {
-    "009813": 0.10, 
-    "0050": 0.10,  
-    "00878": 0.10, 
+    "009813": 0.10,
+    "0050": 0.10,
+    "00878": 0.10,
 }
 
 
@@ -74,13 +69,12 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 樣式定義
 st.markdown(f"""
 <style>
 .stApp {{
     font-size: 1.05rem;
     color: {TEXT_COLOR};
-    background-color: #0e1117; 
+    background-color: #0e1117;
 }}
 h1 {{
     font-size: 2.2em !important;
@@ -88,38 +82,30 @@ h1 {{
     font-weight: bold !important;
     margin-bottom: 0.5rem !important;
     text-shadow: 0 0 5px rgba(207, 105, 85, 0.5);
-    padding-top: 1rem; 
+    padding-top: 1rem;
 }}
 .sub-card-tile {{
-    background: {TILE_BG}; 
+    background: {TILE_BG};
     border-radius: 8px;
-    padding: 1.2rem; 
-    height: 100%;
-    margin-bottom: 1rem; 
-    transition: all 0.2s ease-in-out;
-    border: 1px solid rgba(255, 255, 255, 0.05); 
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); 
-}}
-.highlight-tile {{
-    background: {TILE_BG}; 
-    border-radius: 8px;
-    padding: 1.2rem; 
+    padding: 1.2rem;
     height: 100%;
     margin-bottom: 1rem;
-    border: 2px solid {ACCENT_COLOR}; 
-    box-shadow: 0 0 15px rgba(233, 150, 122, 0.5); 
+    transition: all 0.2s ease-in-out;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }}
-.setting-row {{
-    background: #181b20; 
-    border-radius: 6px;
-    padding: 0.5rem 1rem; 
-    margin-bottom: 0.5rem; 
-    border-left: 3px solid #333; 
-    display: flex; 
-    align-items: center;
+.highlight-tile {{
+    background: {TILE_BG};
+    border-radius: 8px;
+    padding: 1.2rem;
+    height: 100%;
+    margin-bottom: 1rem;
+    border: 2px solid {ACCENT_COLOR};
+    box-shadow: 0 0 15px rgba(233, 150, 122, 0.7);
+    background: linear-gradient(145deg, #1e2126, #24282c);
 }}
 .label-text {{
-    font-size: 0.9em; 
+    font-size: 0.9em;
     color: {LABEL_COLOR};
     font-weight: 500;
     margin-bottom: 0.5rem;
@@ -128,34 +114,33 @@ h1 {{
 }}
 .value-text-regular {{
     color: {TEXT_COLOR};
-    font-size: 1.7em; 
+    font-size: 1.7em;
     font-weight: bold;
 }}
 .value-text-highlight {{
-    color: {ACCENT_COLOR}; 
-    font-size: 2.3em; 
+    color: {ACCENT_COLOR};
+    font-size: 2.3em;
     font-weight: 900;
     text-shadow: 0 0 8px rgba(233, 150, 122, 0.5);
-    line-height: 1; 
+    line-height: 1;
 }}
 .value-text-remaining {{
-    font-size: 1.7em; 
+    font-size: 1.7em;
     font-weight: bold;
     line-height: 1.2;
 }}
 .value-text-setting {{
     color: {TEXT_COLOR};
-    font-size: 1.4em; 
+    font-size: 1.4em;
     font-weight: 700;
-    margin-top: 0.2rem !important; 
-    margin-bottom: 0.2rem !important;
+    margin-top: 0.25rem;
 }}
 .card-section-header {{
     color: {MAIN_COLOR};
     font-weight: bold;
     font-size: 1.4em;
-    padding: 0.7rem 0 0.7rem 0.5rem; 
-    margin-top: 1.5rem; 
+    padding: 0.7rem 0 0.7rem 0.5rem;
+    margin-top: 1.5rem;
     margin-bottom: 0.8rem;
     border-bottom: 2px solid {MAIN_COLOR};
     text-transform: uppercase;
@@ -165,31 +150,26 @@ h1 {{
     font-weight: 600;
     font-size: 1.1em;
     padding: 0.5rem 0 0.5rem 0.5rem;
-    margin-top: 1.5rem; 
+    margin-top: 1.5rem;
     margin-bottom: 0.8rem;
     border-bottom: 1px dashed rgba(233, 150, 122, 0.5);
 }}
 .stNumberInput > div > div {{
-    background-color: #2e2e2e; 
+    background-color: #2e2e2e;
     border: none;
     border-radius: 6px;
     padding: 0.5rem;
     transition: all 0.2s ease;
 }}
-.setting-row .stNumberInput > div > div {{
-    padding: 0.4rem 0.75rem; 
-    margin-top: 0;
-    margin-bottom: 0;
-}}
 .stNumberInput > div > div:focus-within {{
-    background-color: #242424; 
+    background-color: #242424;
     border: 1px solid {ACCENT_COLOR} !important;
-    box-shadow: 0 0 7px rgba(233, 150, 122, 0.7); 
+    box-shadow: 0 0 7px rgba(233, 150, 122, 0.7);
 }}
 .stNumberInput input {{
     color: {ACCENT_COLOR} !important;
     font-weight: bold;
-    font-size: 1.1em; 
+    font-size: 1.3em;
 }}
 div[role="alert"] {{
     background-color: rgba(207, 105, 85, 0.15) !important;
@@ -198,7 +178,7 @@ div[role="alert"] {{
     font-size: 1.0em !important;
     margin-top: 0.5rem !important;
     margin-bottom: 0.5rem !important;
-    padding-left: 1rem; 
+    padding-left: 1rem;
 }}
 .stSidebar > div:first-child {{
     background-color: {DARK_BG};
@@ -233,12 +213,15 @@ def get_current_prices(ticker_map):
 
     try:
         data = yf.download(tickers, period="1d", interval="1m", progress=False, timeout=8)
+
         if data.empty:
              return prices, fetch_time
+
         for code in ticker_map.keys():
             ticker = ticker_map[code]
             try:
                 close_data = data['Close']
+                
                 if isinstance(close_data, pd.DataFrame):
                     if ticker in close_data.columns:
                         price_series = close_data[ticker]
@@ -247,13 +230,16 @@ def get_current_prices(ticker_map):
                             prices[code] = round(valid_prices.iloc[-1], 2)
                 elif isinstance(close_data, pd.Series):
                     if ticker == tickers[0] and len(tickers) == 1: 
-                         valid_prices = close_data.dropna()
-                         if not valid_prices.empty:
-                             prices[code] = round(valid_prices.iloc[-1], 2)
+                        valid_prices = close_data.dropna()
+                        if not valid_prices.empty:
+                            prices[code] = round(valid_prices.iloc[-1], 2)
+
             except Exception:
                 prices[code] = 0.0
+
     except Exception:
         pass
+
     return prices, fetch_time
 
 def calculate_investment(edited_df, total_budget, fee_rate, min_fee_odd):
@@ -268,6 +254,7 @@ def calculate_investment(edited_df, total_budget, fee_rate, min_fee_odd):
         allocated_budget = total_budget * weight
 
         effective_price = market_price + price_buffer
+
         shares_to_buy = 0
         estimated_fee = 0
         conservative_total_cost = 0.0
@@ -293,15 +280,17 @@ def calculate_investment(edited_df, total_budget, fee_rate, min_fee_odd):
             if s == 0:
                 shares = 0
                 break
+
             trade_value_conservative = s * effective_price
             fee_calculated = int(trade_value_conservative * fee_rate)
             
             if s >= 1000:
-                current_min_fee = MIN_FEE_REGULAR 
+                current_min_fee = MIN_FEE_REGULAR
             else:
-                current_min_fee = min_fee_odd 
+                current_min_fee = min_fee_odd
 
             current_fee = max(current_min_fee, fee_calculated)
+            
             cost_for_budget_check = trade_value_conservative + current_fee
 
             if cost_for_budget_check <= allocated_budget:
@@ -311,6 +300,7 @@ def calculate_investment(edited_df, total_budget, fee_rate, min_fee_odd):
                 break
 
         shares_to_buy = shares
+
         total_spent += conservative_total_cost
         results_list.append({
             "標的代號": code,
@@ -332,11 +322,11 @@ def render_budget_metrics(total_budget, total_spent):
     col1, col2, col3 = st.columns(3)
     
     remaining = total_budget - total_spent
-    remaining_display = round(remaining) 
-    total_spent_display = round(total_spent) 
+    remaining_display = round(remaining)
+    total_spent_display = round(total_spent)
 
-    remaining_color = ACCENT_COLOR if remaining > 0 else MAIN_COLOR
-    remaining_icon = "✅" if remaining > 0 else "🚨" 
+    remaining_color = ACCENT_COLOR if remaining >= 0 else MAIN_COLOR
+    remaining_icon = "✅" if remaining >= 0 else "🚨"
 
     with col1:
         st.markdown(f"""
@@ -345,6 +335,7 @@ def render_budget_metrics(total_budget, total_spent):
             <div class='value-text-regular'>TWD {total_budget:,.0f}</div>
         </div>
         """, unsafe_allow_html=True)
+
     with col2:
         st.markdown(f"""
         <div class='sub-card-tile'>
@@ -352,6 +343,7 @@ def render_budget_metrics(total_budget, total_spent):
             <div class='value-text-regular'>TWD {total_spent_display:,.0f}</div>
         </div>
         """, unsafe_allow_html=True)
+
     with col3:
         st.markdown(f"""
         <div class='sub-card-tile'>
@@ -361,59 +353,39 @@ def render_budget_metrics(total_budget, total_spent):
         """, unsafe_allow_html=True)
 
 def render_ticker_results_and_breakdown(results_list):
-    """渲染每個標的的建議結果 (V37: 優化為 2x2 網格，簡潔版)"""
     st.markdown(f"<div class='card-section-header'>{DEPLOYMENT_HEADER}</div>", unsafe_allow_html=True)
 
     for item in results_list:
-        # 標題
         st.markdown(f"<div class='ticker-group-header-sc'>{DEPLOYMENT_TARGET_LABEL.format(code=item['標的代號'], ratio=item['比例'])}</div>", unsafe_allow_html=True)
 
-        # --- 戰術網格佈局 (2x2) ---
-        # Row 1: 部署數量 & 單價
-        col1, col2 = st.columns(2)
-        
-        # 1. 建議部署單位數量 (Highlight)
-        with col1:
-            st.markdown(f"""
-            <div class='highlight-tile'>
-                <div class='label-text'>{RECOMMENDED_UNITS_LABEL}</div>
-                <div class='value-text-highlight'>{item['建議股數']}</div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-        # 2. 戰術單位招募單價 (有效造價)
-        with col2:
-            st.markdown(f"""
-            <div class='sub-card-tile'>
-                <div class='label-text'>{UNIT_COST_LABEL}</div>
-                <div class='value-text-regular'>TWD {item['有效造價']:,.2f}</div>
-            </div>
-            """, unsafe_allow_html=True)
+        total_cost_display = item['總成本']
+        effective_price = item['有效造價']
 
-        # Row 2: 最終開支 & 資金配給/物流費
-        col3, col4 = st.columns(2)
+        metrics = [
+            (RECOMMENDED_UNITS_LABEL, item['建議股數'], "highlight", "股"), 
+            (UNIT_COST_LABEL, f"{effective_price:,.2f}", "regular", "TWD"),
+            (TOTAL_DEPLOYMENT_COST_LABEL, f"{total_cost_display:,.2f}", "regular", "TWD"),
+            (TARGET_FUND_ALLOCATION_LABEL, f"{item['分配金額']:,.0f}", "regular", "TWD"),
+        ]
 
-        # 3. 最終戰損開支
-        with col3:
-            st.markdown(f"""
-            <div class='sub-card-tile'>
-                <div class='label-text'>{TOTAL_DEPLOYMENT_COST_LABEL}</div>
-                <div class='value-text-regular'>TWD {item['總成本']:,.2f}</div>
-            </div>
-            """, unsafe_allow_html=True)
-
-        # 4. 目標戰區晶礦配給 & 預估物流補給費 (整合顯示)
-        with col4:
-            st.markdown(f"""
-            <div class='sub-card-tile'>
-                <div class='label-text'>{TARGET_FUND_ALLOCATION_LABEL}</div>
-                <div class='value-text-regular' style='margin-bottom: 0.8rem;'>TWD {item['分配金額']:,.0f}</div>
+        col1, col2, col3, col4 = st.columns(4)
+        for i, (label, value, style_type, unit) in enumerate(metrics):
+            with [col1, col2, col3, col4][i]:
+                tile_class = 'highlight-tile' if style_type == 'highlight' else 'sub-card-tile'
+                value_class = 'value-text-highlight' if style_type == 'highlight' else 'value-text-regular'
                 
-                <div style='border-top: 1px dashed rgba(255, 255, 255, 0.1); padding-top: 0.5rem; font-size: 0.9em; color: {LABEL_COLOR};'>
-                    📦 {LOGISTICS_FEE_LABEL}: <span style='color: {TEXT_COLOR}; font-weight: bold;'>TWD {item['預估手續費']:,.0f}</span>
+                # 調整顯示格式，讓單位數量更醒目
+                if style_type == 'highlight':
+                    display_value = f"{value:,} {unit}"
+                else:
+                    display_value = f"{unit} {value}"
+
+                st.markdown(f"""
+                <div class='{tile_class}'>
+                    <div class='label-text'>{label}</div>
+                    <div class='{value_class}'>{display_value}</div>
                 </div>
-            </div>
-            """, unsafe_allow_html=True)
+                """, unsafe_allow_html=True)
 
 
 def render_ticker_settings(ticker_map, allocation_weights, prices_ready=True):
@@ -422,53 +394,62 @@ def render_ticker_settings(ticker_map, allocation_weights, prices_ready=True):
     if not prices_ready:
         st.warning(DATA_FETCH_WARNING)
 
-    # 設置標題列
     cols_header = st.columns([1.5, 1, 2.5, 2.5])
     with cols_header[0]:
         st.markdown(f"<div class='label-text'>{TARGET_DESIGNATION_LABEL}</div>", unsafe_allow_html=True)
     with cols_header[1]:
         st.markdown(f"<div class='label-text'>{STRATEGIC_RATIO_LABEL}</div>", unsafe_allow_html=True)
     with cols_header[2]:
-        st.markdown(f"<div class='label-text'>{DEFAULT_UNIT_COST_LABEL}</div>", unsafe_allow_html=True) 
+        st.markdown(f"<div class='label-text'>{DEFAULT_UNIT_COST_LABEL}</div>", unsafe_allow_html=True)
     with cols_header[3]:
-        st.markdown(f"<div class='label-text'>{PRICE_BUFFER_LABEL_SC}</div>", unsafe_allow_html=True) 
+        st.markdown(f"<div class='label-text'>{PRICE_BUFFER_LABEL_SC}</div>", unsafe_allow_html=True)
 
     for code in ticker_map.keys():
         weight = allocation_weights[code]
         price_value = st.session_state.editable_prices.get(code, 0.01)
         buffer_value = st.session_state.ticker_buffers.get(code, DEFAULT_BUFFERS.get(code, 0.01))
 
-        with st.container():
-            st.markdown("<div class='setting-row'>", unsafe_allow_html=True)
-            col_code, col_weight, col_price, col_buffer = st.columns([1.5, 1, 2.5, 2.5])
+        st.markdown("<div class='sub-card-tile'>", unsafe_allow_html=True)
+        
+        col_code, col_weight, col_price, col_buffer = st.columns([1.5, 1, 2.5, 2.5])
 
-            with col_code:
-                st.markdown(f"""<div class='value-text-setting'>{code}</div>""", unsafe_allow_html=True)
-            with col_weight:
-                st.markdown(f"""<div class='value-text-setting'>{weight*100:.0f}%</div>""", unsafe_allow_html=True)
-            with col_price:
-                new_price = st.number_input(
-                    label=f"Price_Input_{code}",
-                    min_value=0.01,
-                    value=price_value,
-                    step=0.01,
-                    format="%.2f",
-                    key=f"price_input_{code}",
-                    label_visibility="collapsed"
-                )
-                st.session_state.editable_prices[code] = new_price
-            with col_buffer:
-                new_buffer = st.number_input(
-                    label=f"Buffer_Input_{code}",
-                    min_value=0.00,
-                    value=buffer_value,
-                    step=0.01,
-                    format="%.2f",
-                    key=f"buffer_input_{code}",
-                    label_visibility="collapsed"
-                )
-                st.session_state.ticker_buffers[code] = new_buffer
-            st.markdown("</div>", unsafe_allow_html=True)
+        with col_code:
+            st.markdown(f"""
+                <div class='value-text-setting' style='margin-top: 0.25rem;'>{code}</div>
+            """, unsafe_allow_html=True)
+
+        with col_weight:
+            st.markdown(f"""
+                <div class='value-text-setting' style='margin-top: 0.25rem;'>{weight*100:.0f}%</div>
+            """, unsafe_allow_html=True)
+
+        with col_price:
+            new_price = st.number_input(
+                label=f"Price_Input_{code}",
+                min_value=0.01,
+                value=price_value,
+                step=0.01,
+                format="%.2f",
+                key=f"price_input_{code}",
+                label_visibility="collapsed"
+            )
+            st.session_state.editable_prices[code] = new_price
+
+        with col_buffer:
+            new_buffer = st.number_input(
+                label=f"Buffer_Input_{code}",
+                min_value=0.00,
+                value=buffer_value,
+                step=0.01,
+                format="%.2f",
+                key=f"buffer_input_{code}",
+                label_visibility="collapsed"
+            )
+            st.session_state.ticker_buffers[code] = new_buffer
+
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
 
 def check_allocation_sum(weights):
     current_sum = sum(weights.values())
@@ -483,11 +464,12 @@ with st.spinner(DATA_SYNC_SPINNER):
         prices_ready = False
 
 if 'editable_prices' not in st.session_state:
-    st.session_state.editable_prices = current_prices.copy()
+    st.session_state.editable_prices = {k: v if v > 0.0 else 0.01 for k, v in current_prices.items()}
 else:
     for code, price in current_prices.items():
-        if f"price_input_{code}" not in st.session_state and st.session_state.editable_prices[code] != price:
-             st.session_state.editable_prices[code] = price
+        if price > 0.0:
+            st.session_state.editable_prices[code] = price
+
 
 if 'ticker_buffers' not in st.session_state:
     st.session_state.ticker_buffers = DEFAULT_BUFFERS.copy()
@@ -498,14 +480,14 @@ else:
 
 st.sidebar.header(BUDGET_SIDEBAR_HEADER)
 total_budget = st.sidebar.number_input(
-    BUDGET_INPUT_LABEL, 
+    BUDGET_INPUT_LABEL,
     min_value=100,
     value=DEFAULT_BUDGET,
     step=1000,
     format="%d"
 )
 fee_rate = st.sidebar.number_input(
-    FEE_RATE_INPUT_LABEL, 
+    FEE_RATE_INPUT_LABEL,
     min_value=0.000001,
     max_value=0.01,
     value=FEE_RATE_DEFAULT,
@@ -513,6 +495,7 @@ fee_rate = st.sidebar.number_input(
     format="%.6f"
 )
 st.sidebar.caption(MIN_FEE_CAPTION.format(MIN_FEE=MIN_FEE_ODD))
+
 
 if not check_allocation_sum(ALLOCATION_WEIGHTS):
     st.sidebar.error("❌ 警告：所有戰區配比總和不等於 100%。請修正 `ALLOCATION_WEIGHTS` 變量。")
